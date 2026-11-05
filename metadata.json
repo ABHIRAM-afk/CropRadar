@@ -1,0 +1,6 @@
+{
+  "name": "Crop Radar AI",
+  "description": "Predictive agricultural intelligence ecosystem featuring multimodal crop disease diagnosis, pesticide label scanning, weather-aware spray advisories, community disease radar, and bilingual Telugu/English voice assistance.",
+  "requestFramePermissions": ["geolocation", "microphone", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

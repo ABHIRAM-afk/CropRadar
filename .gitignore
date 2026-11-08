@@ -8,4 +8,7 @@ coverage/
 *.db-journal
 *.db-wal
 .env*
+.env.local
+.env.*.local
 !.env.example
+.vercel

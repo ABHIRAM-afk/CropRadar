@@ -2132,7 +2132,7 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.resolve(__dirname, 'dist');
+    const distPath = path.resolve(process.cwd(), 'dist');
     if (fs.existsSync(distPath)) {
       app.use(express.static(distPath));
       app.get('*', (_req: Request, res: Response) => {
@@ -2146,4 +2146,10 @@ async function startServer() {
   });
 }
 
-startServer();
+// Start the HTTP listener in standalone development/production.
+// In Vercel serverless environments (VERCEL=1), the exported app handles requests.
+if (process.env.VERCEL !== '1') {
+  startServer();
+}
+
+export default app;

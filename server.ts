@@ -52,16 +52,17 @@ app.use(async (req: AuthenticatedRequest, _res: Response, next: NextFunction) =>
   next();
 });
 
-// Initialize Google GenAI client server-side
-const apiKey = process.env.GEMINI_API_KEY || '';
-const ai = new GoogleGenAI({
-  apiKey,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+// Initialize Google GenAI client server-side with dynamic API key resolution
+const getGeminiApiKey = () => process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+const getAiClient = () =>
+  new GoogleGenAI({
+    apiKey: getGeminiApiKey(),
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
     },
-  },
-});
+  });
 
 // Registered community farms for 5km proximity broadcasting (in-memory demo pool)
 const registeredCommunityFarms: RegisteredFarm[] = [
@@ -1293,10 +1294,10 @@ app.post('/api/analyze', async (req: AuthenticatedRequest, res: Response) => {
   }
 
   // Never present a canned catalog result as a live image analysis.
-  if (!apiKey) {
+  if (!getGeminiApiKey()) {
     return res.status(503).json({
       success: false,
-      error: 'Gemini analysis is not configured. Set GEMINI_API_KEY in the server .env and restart CropRadar.',
+      error: 'Gemini analysis is not configured. Set GEMINI_API_KEY in the server environment variables and redeploy CropRadar.',
     });
   }
 
@@ -1409,14 +1410,15 @@ You MUST respond in valid JSON format matching this structure:
 
     parts.push({ text: farmerPrompt });
 
+    const client = getAiClient();
     const executeGemini = async (modelName: string) => {
       let timeoutHandle: NodeJS.Timeout | undefined;
       const timeoutLimit = new Promise<never>((_, reject) => {
-        timeoutHandle = setTimeout(() => reject(new Error('AI inference timed out')), 45000);
+        timeoutHandle = setTimeout(() => reject(new Error('AI inference timed out')), 50000);
       });
-      const call = ai.models.generateContent({
+      const call = client.models.generateContent({
         model: modelName,
-        contents: { parts },
+        contents: parts,
         config: {
           systemInstruction,
           responseMimeType: 'application/json',
@@ -1427,12 +1429,28 @@ You MUST respond in valid JSON format matching this structure:
       })) as any;
     };
 
+    const candidateModels = [
+      process.env.GEMINI_MODEL,
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+    ].filter(Boolean) as string[];
+
     let response: any;
-    try {
-      response = await executeGemini('gemini-3.5-flash');
-    } catch (primaryErr: any) {
-      console.warn('Primary model (gemini-3.5-flash) failed or spiked, falling back to gemini-3.5-flash-lite:', primaryErr?.message);
-      response = await executeGemini('gemini-3.5-flash-lite');
+    let lastError: any;
+    for (const model of candidateModels) {
+      try {
+        response = await executeGemini(model);
+        if (response?.text) break;
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Model ${model} failed, attempting next candidate:`, err?.message || err);
+      }
+    }
+
+    if (!response && lastError) {
+      throw lastError;
     }
 
     const rawText = response.text || '{}';
@@ -1520,13 +1538,22 @@ You MUST respond in valid JSON format matching this structure:
       rawSummary: parsedResult.spokenSummaryEn || 'Analysis complete.',
     });
   } catch (error: any) {
-    console.error('Gemini analysis failed:', error?.message || error);
-    const timedOut = error?.message === 'AI inference timed out';
+    const rawMsg = error?.message || String(error || '');
+    console.error('Gemini analysis failed:', rawMsg);
+    const timedOut = rawMsg.includes('timed out') || rawMsg.includes('timeout');
+
+    // Security: Never leak API keys, authorization tokens, or internal URLs in response JSON
+    const sanitizedError = timedOut
+      ? 'Gemini analysis took too long. Please try again with a smaller or clearer image.'
+      : rawMsg.includes('API_KEY_INVALID') || rawMsg.includes('API key not valid')
+      ? 'Invalid Gemini API key. Please check GEMINI_API_KEY in your Vercel project settings.'
+      : rawMsg.includes('not found') || rawMsg.includes('404')
+      ? 'Configured AI model is currently unavailable on this API key. Please verify your GEMINI_API_KEY model access.'
+      : 'Gemini analysis failed to process this image. Please try again with a clearer leaf photo.';
+
     return res.status(timedOut ? 504 : 502).json({
       success: false,
-      error: timedOut
-        ? 'Gemini analysis took too long. Please try again with a smaller or clearer image.'
-        : 'Gemini analysis failed. Check the server logs and confirm the API key has access to the configured model.',
+      error: sanitizedError,
     });
   }
 });
@@ -1568,7 +1595,8 @@ app.post('/api/chat', async (req: AuthenticatedRequest, res: Response) => {
     });
   }
 
-  if (!apiKey) {
+  const currentChatApiKey = getGeminiApiKey();
+  if (!currentChatApiKey) {
     const replyEn = `Regarding ${cropContext}: Ensure proper field drainage and monitor for early pest thresholds. You can attach a leaf photo for AI pathology analysis.`;
     const replyTe = `${cropContext} పంటకు సంబంధించి: పొలంలో నీరు నిల్వ ఉండకుండా చూసుకోండి మరియు ప్రారంభ తెగుళ్ల లక్షణాలను గమనించండి. స్పష్టత కోసం ఆకు ఫోటో తీసి పంపవచ్చు.`;
 
@@ -1600,20 +1628,41 @@ Respond in JSON:
 
     const prompt = `${contextText}\nFarmer: ${message}\nActive Crop: ${cropContext}\nLanguage: ${language}`;
 
-    const chatCall = ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-      config: {
-        systemInstruction,
-        responseMimeType: 'application/json',
-      },
-    });
+    const client = getAiClient();
+    const candidateChatModels = [
+      process.env.GEMINI_MODEL,
+      'gemini-2.5-flash',
+      'gemini-3.5-flash',
+    ].filter(Boolean) as string[];
 
-    const timeoutLimit = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Chat inference timeout / service spike fallback')), 20000)
-    );
+    let response: any;
+    let lastChatErr: any;
+    for (const model of candidateChatModels) {
+      try {
+        const chatCall = client.models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            systemInstruction,
+            responseMimeType: 'application/json',
+          },
+        });
 
-    const response = (await Promise.race([chatCall, timeoutLimit])) as any;
+        const timeoutLimit = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Chat inference timeout')), 25000)
+        );
+
+        response = (await Promise.race([chatCall, timeoutLimit])) as any;
+        if (response?.text) break;
+      } catch (err: any) {
+        lastChatErr = err;
+        console.warn(`Chat model ${model} failed, trying next:`, err?.message || err);
+      }
+    }
+
+    if (!response && lastChatErr) {
+      throw lastChatErr;
+    }
     const parsed = JSON.parse(response.text || '{}');
 
     // Save assistant reply to chat_messages if active
@@ -1668,12 +1717,14 @@ app.post('/api/tts', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Text is required for TTS' });
     }
 
-    if (!apiKey) {
+    const ttsApiKey = getGeminiApiKey();
+    if (!ttsApiKey) {
       return res.json({ success: false, error: 'TTS requires API key' });
     }
 
     const isTe = language === 'te';
-    const ttsCall = ai.models.generateContent({
+    const client = getAiClient();
+    const ttsCall = client.models.generateContent({
       model: 'gemini-3.8-flash-lite-tts',
       contents: [
         {
@@ -2120,6 +2171,31 @@ app.post('/api/field-diary', async (req: AuthenticatedRequest, res: Response) =>
 
   inMemoryFieldDiaryStore.unshift(newEntry);
   res.json({ success: true, entry: newEntry });
+});
+
+// 404 handler for unmatched API routes - ensures always returning valid JSON
+app.all('/api/*', (req: Request, res: Response) => {
+  res.status(404).json({
+    success: false,
+    error: `API route ${req.method} ${req.url} was not found on this server.`,
+  });
+});
+
+// Global error handling middleware - ensures all server errors return valid JSON without leaking secrets
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const errMessage = typeof err?.message === 'string' ? err.message : String(err || 'Unknown error');
+  console.error('Express server error:', errMessage);
+  if (res.headersSent) return;
+
+  const status = typeof err.status === 'number' ? err.status : typeof err.statusCode === 'number' ? err.statusCode : 500;
+  const isPayloadTooLarge = err.type === 'entity.too.large' || status === 413;
+
+  res.status(status).json({
+    success: false,
+    error: isPayloadTooLarge
+      ? 'The uploaded photo exceeds the server payload limit. Please upload a smaller image.'
+      : 'An unexpected server error occurred while processing your request.',
+  });
 });
 
 // Development vs Production static / vite serving

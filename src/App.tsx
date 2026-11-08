@@ -44,6 +44,7 @@ import { CropMismatchCard } from './components/CropMismatchCard';
 import { OutbreakAlertConfirmationCard } from './components/OutbreakAlertConfirmationCard';
 import { LoginPage } from './components/LoginPage';
 import { ensureGuestOrAuthSession, getSupabaseClient, signOutUser, authFetch } from './lib/supabaseClient';
+import { optimizeImageForAnalysis } from './utils/imageOptimizer';
 
 const PROFILE_STORAGE_KEY = 'cropradar.farmer-profile.v2';
 const getProfileStorageKey = (userId?: string) => `${PROFILE_STORAGE_KEY}:${userId || 'guest'}`;
@@ -1042,6 +1043,16 @@ export default function App() {
       }
     }
 
+    let payloadImage = imageBase64;
+    if (imageBase64) {
+      try {
+        const optimized = await optimizeImageForAnalysis(imageBase64, 1280, 0.82);
+        payloadImage = optimized.base64;
+      } catch (optErr) {
+        console.warn('Pre-send image optimization fallback:', optErr);
+      }
+    }
+
     const currentCycleId = activeCropCycleId;
     const activeCycle = cropCycles.find((c) => c.id === currentCycleId);
     const activeCropName = activeCycle?.cropNameEn || profile.primaryCrop;
@@ -1054,23 +1065,23 @@ export default function App() {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       textEn: text,
       textTe: text,
-      imagePreview: imageBase64,
+      imagePreview: payloadImage,
     };
 
     if (currentCycleId) {
       appendMessage(currentCycleId, newFarmerMsg);
     }
     setIsAnalyzing(true);
-    setAnalysisProgress(imageBase64 ? (isTe ? 'చిత్రాన్ని విశ్లేషిస్తున్నాము...' : 'Analyzing crop photo with Gemini AI...') : null);
+    setAnalysisProgress(payloadImage ? (isTe ? 'చిత్రాన్ని విశ్లేషిస్తున్నాము...' : 'Analyzing crop photo with Gemini AI...') : null);
 
     try {
-      if (imageBase64) {
+      if (payloadImage) {
         // Multimodal analysis route with optimized JPEG
         const resp = await authFetch('/api/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            imageBase64,
+            imageBase64: payloadImage,
             textPrompt: text,
             language,
             cropContext: activeCropName,
@@ -1078,11 +1089,27 @@ export default function App() {
           }),
         });
 
-        const result = await resp.json();
+        const rawBody = await resp.text();
+        let result: any = null;
+        const contentType = resp.headers.get('content-type') || '';
+        if (contentType.includes('application/json') || rawBody.trim().startsWith('{')) {
+          try {
+            result = JSON.parse(rawBody);
+          } catch {
+            result = null;
+          }
+        }
 
         // Check for real failure: Do not invent results or pretend failure was success
-        if (!resp.ok || !result.success || !result.data) {
-          throw new Error(result.error || 'Gemini model analysis could not process this image.');
+        if (!resp.ok || !result || !result.success || !result.data) {
+          const defaultErrorMessage =
+            resp.status === 413
+              ? (isTe ? 'ఫోటో పరిమాణం చాలా పెద్దదిగా ఉంది. దయచేసి చిన్న ఫోటో ఎంచుకోండి.' : 'The uploaded photo is too large for serverless processing. Please upload a smaller photo.')
+              : resp.status === 504 || resp.status === 502
+              ? (isTe ? 'AI విశ్లేషణ సమయం ముగిసింది. దయచేసి స్పష్టమైన ఫోటోతో మళ్లీ ప్రయత్నించండి.' : 'AI model inference timed out. Please try again with a clearer leaf photo.')
+              : (isTe ? 'చిత్ర విశ్లేషణ ప్రాసెస్ చేయలేకపోయాము. దయచేసి మళ్లీ ప్రయత్నించండి.' : 'Gemini model analysis could not process this image. Please try again.');
+
+          throw new Error(result?.error || defaultErrorMessage);
         }
 
         const aiData: DiagnosisDetails = result.data;
@@ -1202,8 +1229,18 @@ export default function App() {
           }),
         });
 
-        const json = await resp.json();
-        if (json.success) {
+        const rawBody = await resp.text();
+        let json: any = null;
+        const contentType = resp.headers.get('content-type') || '';
+        if (contentType.includes('application/json') || rawBody.trim().startsWith('{')) {
+          try {
+            json = JSON.parse(rawBody);
+          } catch {
+            json = null;
+          }
+        }
+
+        if (json && json.success) {
           const aiMsg: ChatMessage = {
             id: `ai-${Date.now()}`,
             cropCycleId: currentCycleId || undefined,
@@ -1216,7 +1253,7 @@ export default function App() {
             appendMessage(currentCycleId, aiMsg);
           }
         } else {
-          throw new Error(json.error || 'Chat response failed');
+          throw new Error(json?.error || (isTe ? 'సందేశం పంపడంలో విఫలమైంది.' : 'Chat response failed. Please try again.'));
         }
       }
     } catch (err: any) {

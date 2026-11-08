@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Camera, X, RefreshCw, Check, AlertCircle } from 'lucide-react';
 import { Language } from '../types/agricultural';
+import { optimizeImageForAnalysis } from '../utils/imageOptimizer';
 
 interface CameraModalProps {
   isOpen: boolean;
@@ -154,14 +155,21 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        if (typeof reader.result === 'string') {
-                          onCapture(reader.result);
+                      optimizeImageForAnalysis(file, 1280, 0.85)
+                        .then((optimized) => {
+                          onCapture(optimized.base64);
                           handleClose();
-                        }
-                      };
-                      reader.readAsDataURL(file);
+                        })
+                        .catch(() => {
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            if (typeof reader.result === 'string') {
+                              onCapture(reader.result);
+                              handleClose();
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        });
                     }
                   }}
                 />

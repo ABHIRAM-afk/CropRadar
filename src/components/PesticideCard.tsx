@@ -10,15 +10,18 @@ import {
   AlertTriangle,
   RotateCw,
   CheckCircle2,
+  BookmarkPlus,
+  Calculator,
 } from 'lucide-react';
 import { DiagnosisDetails, Language } from '../types/agricultural';
 import { playAgriculturalSpeech, stopAgriculturalSpeech } from '../utils/audioSpeech';
+import { calculatePesticideQuantity } from '../utils/agriculturalLogic';
 
 interface PesticideCardProps {
   data: DiagnosisDetails;
   language: Language;
   onCheckWeather: () => void;
-  onSaveToDiary: () => void;
+  onSaveToDiary: (treatedArea: number, totalChemical: string) => void;
   isSaved?: boolean;
 }
 
@@ -33,9 +36,24 @@ export const PesticideCard: React.FC<PesticideCardProps> = ({
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const details = data.labelDetails;
 
+  // On-demand treated area state (never stored as fixed acreage)
+  const [treatedAreaInput, setTreatedAreaInput] = useState<string>('2.5');
+
   const moaCode = details?.moaCode || 'FRAC 11';
-  // Check if resistance concern exists for demonstration / realistic rotation check
   const isRecentRepeated = moaCode.includes('11') || moaCode.includes('4A');
+
+  const parsedArea = parseFloat(treatedAreaInput) || 0;
+  const isVerifiedForCrop = Boolean(details?.dosageVerifiedForActiveCrop ?? true);
+  const dosagePerAcre = details?.dosagePerAcreMlOrG ?? 250;
+  const waterPerAcre = details?.waterPerAcreLiters ?? 200;
+
+  // Dynamic chemical calculation
+  const calculation = calculatePesticideQuantity(
+    dosagePerAcre,
+    waterPerAcre,
+    parsedArea,
+    isVerifiedForCrop
+  );
 
   const speakSummary = () => {
     if (isPlayingAudio) {
@@ -56,209 +74,186 @@ export const PesticideCard: React.FC<PesticideCardProps> = ({
     );
   };
 
+  const handleSave = () => {
+    const summaryText = calculation.isCalculable
+      ? `${details?.activeIngredient || 'Product'} @ ${calculation.totalChemicalText} in ${calculation.totalWaterLiters} L water`
+      : 'Unverified application recorded';
+    onSaveToDiary(parsedArea, summaryText);
+  };
+
   return (
-    <div className="w-full bg-[#10182A] border border-slate-800 rounded-2xl p-4 sm:p-5 text-slate-200 shadow-xl space-y-4">
-      {/* 1. Header: Product Name & Category */}
-      <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-800">
+    <div className="w-full bg-[#FFFFFF] border border-[#E2E8D8] rounded-2xl p-4 sm:p-6 text-[#14281D] shadow-sm space-y-4">
+      {/* 1. Header: Product Name, Category & Speech Output */}
+      <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-[#EAEFE2]">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-cyan-400 mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#256E3A] mb-1">
             <FileText className="w-3.5 h-3.5" />
-            <span>{isTe ? 'రసాయన లేబుల్ స్కాన్' : 'Pesticide Label Intelligence'}</span>
+            <span>{isTe ? 'రసాయన లేబుల్ స్కాన్' : 'Pesticide Label Analysis'}</span>
           </div>
-          <h2 className="text-base sm:text-lg font-bold text-white">
+          <h2 className="text-base sm:text-lg font-extrabold text-[#14281D]">
             {isTe ? data.diagnosisOrProduct.titleTe : data.diagnosisOrProduct.titleEn}
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-[#5C6F64] mt-0.5 font-medium">
             {details?.activeIngredient} ({details?.concentration}) · {details?.formulation}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           {/* FRAC / IRAC MOA Tag */}
-          <span className="px-2.5 py-1 rounded-full text-xs font-mono font-semibold bg-cyan-950/70 text-cyan-300 border border-cyan-800/80">
+          <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-[#256E3A]/10 text-[#256E3A] border border-[#256E3A]/30">
             {moaCode}
           </span>
 
-          {/* Audio Listen */}
+          {/* Voice Output */}
           <button
             type="button"
             onClick={speakSummary}
             title={isTe ? 'సారాంశం వినండి' : 'Listen to audio explanation'}
             aria-label="Listen to audio explanation"
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-medium transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#256E3A]/10 hover:bg-[#256E3A]/20 border border-[#256E3A]/30 text-[#256E3A] text-xs font-bold transition-colors cursor-pointer shadow-xs"
           >
             {isPlayingAudio ? (
-              <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+              <VolumeX className="w-3.5 h-3.5 text-rose-600" />
             ) : (
-              <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+              <Volume2 className="w-3.5 h-3.5 text-[#256E3A]" />
             )}
             <span>{isPlayingAudio ? (isTe ? 'ఆపండి' : 'Stop') : isTe ? 'వినండి' : 'Listen'}</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Chemical Resistance Management Warning */}
+      {/* 2. Chemical Resistance Warning */}
       {isRecentRepeated && (
-        <div className="bg-amber-950/40 border border-amber-500/40 rounded-xl p-3 text-amber-200">
-          <div className="flex items-start gap-2.5">
-            <RotateCw className="w-4 h-4 text-amber-400 shrink-0 mt-0.5 animate-spin-slow" />
-            <div className="text-xs">
-              <span className="font-bold text-amber-300">
-                {isTe ? 'రసాయన నిరోధకత హెచ్చరిక (Resistance Alert): ' : 'Resistance Management Alert: '}
-              </span>
-              <span>
-                {isTe
-                  ? `ఈ పంటకు గత 30 రోజులలో ${moaCode} గ్రూప్ మందు వాడబడింది. తెగుళ్లు లేదా పురుగులకు నిరోధకత రాకుండా FRAC 3 (ట్రయాజోల్స్) లేదా మల్టీ-సైట్ రసాయనాలతో మార్పిడి చేయండి.`
-                  : `Group ${moaCode} was recently recorded for this crop. Continuous use accelerates pest resistance. Rotate with FRAC 3 (Triazoles) or FRAC M (Multi-site) chemistry.`}
-              </span>
-            </div>
+        <div className="p-3.5 rounded-xl bg-[#FFFDF5] border border-[#F3E7C4] flex items-start gap-3">
+          <RotateCw className="w-4 h-4 text-[#8A6100] shrink-0 mt-0.5 animate-spin-slow" />
+          <div className="space-y-0.5 text-xs text-[#4A3B00]">
+            <p className="font-bold">
+              {isTe
+                ? `రసాయన నిరోధకత హెచ్చరిక: ${moaCode} వర్గం పునరావృతం అవుతోంది`
+                : `Resistance Management Warning: Repeated ${moaCode} Application`}
+            </p>
+            <p className="text-[11px] leading-relaxed">
+              {isTe
+                ? 'వరుసగా ఒకే వర్గానికి చెందిన రసాయనం వాడటం వల్ల పురుగులు నిరోధకత పెంచుకుంటాయి. వేరే FRAC/IRAC గ్రూప్ మందుతో మార్చి పిచికారీ చేయండి.'
+                : 'Repeated applications of this chemical group increase pest resistance risk. Rotate with an alternate mode of action before re-applying.'}
+            </p>
           </div>
         </div>
       )}
 
-      {/* 3. Key Label Metadata Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-        <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
-          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
-            {isTe ? 'క్రియాశీల రసాయనం' : 'Active Ingredient'}
-          </span>
-          <span className="font-semibold text-slate-200 mt-0.5 block truncate">
-            {details?.activeIngredient || 'Azoxystrobin'}
-          </span>
-        </div>
-
-        <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
-          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
-            {isTe ? 'రూపం (Formulation)' : 'Formulation'}
-          </span>
-          <span className="font-semibold text-slate-200 mt-0.5 block truncate">
-            {details?.formulation || 'Suspension Conc.'}
-          </span>
-        </div>
-
-        <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
-          <span className="text-[10px] text-slate-400 uppercase tracking-wider block flex items-center gap-1">
-            <Clock className="w-3 h-3 text-cyan-400" />
-            <span>{isTe ? 'వర్ష నిరోధకత' : 'Rainfastness'}</span>
-          </span>
-          <span className="font-semibold text-cyan-300 mt-0.5 block">
-            {details?.rainfastHours || '2 Hours'}
-          </span>
-        </div>
-
-        <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
-          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
-            {isTe ? 'రసాయన వర్గం' : 'MoA Group'}
-          </span>
-          <span className="font-semibold text-emerald-400 mt-0.5 block font-mono">
-            {moaCode}
-          </span>
-        </div>
-      </div>
-
-      {/* 4. Target Pests & Approved Crops */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-        <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-          <h4 className="font-semibold text-slate-300 mb-1.5">
-            {isTe ? 'నివారించే తెగుళ్లు / పురుగులు' : 'Target Pests / Diseases'}
-          </h4>
-          <div className="flex flex-wrap gap-1.5">
-            {(details?.targetPests || ['Anthracnose', 'Powdery Mildew', 'Leaf Spot']).map((pest, i) => (
-              <span
-                key={i}
-                className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[11px]"
-              >
-                {pest}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-          <h4 className="font-semibold text-slate-300 mb-1.5">
-            {isTe ? 'సిఫార్సు చేయబడిన పంటలు' : 'Recommended Crops'}
-          </h4>
-          <div className="flex flex-wrap gap-1.5">
-            {(details?.approvedCrops || ['Chilli', 'Rice', 'Tomato', 'Maize']).map((c, i) => (
-              <span
-                key={i}
-                className="px-2 py-0.5 rounded-md bg-emerald-950/50 text-emerald-300 border border-emerald-900/40 text-[11px]"
-              >
-                {c}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 5. Safety Warnings & PPE */}
-      <div className="bg-rose-950/20 border border-rose-900/40 rounded-xl p-3">
-        <h4 className="text-xs font-bold text-rose-300 flex items-center gap-1.5 mb-1.5">
-          <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-          <span>{isTe ? 'భద్రతా జాగ్రత్తలు (Safety Precautions)' : 'Safety Precautions & PPE'}</span>
-        </h4>
-        <ul className="space-y-1 text-xs text-rose-200/90">
-          {(details?.safetyWarnings || [
-            'Wear nitrile gloves and face mask during tank mixing.',
-            'Maintain Pre-Harvest Interval (PHI) as specified on package.',
-            'Keep away from water bodies and livestock grazing areas.',
-          ]).map((w, idx) => (
-            <li key={idx} className="flex items-start gap-1.5">
-              <span className="text-rose-400 font-bold">·</span>
-              <span>{w}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Deterministic Dosage Rule Warning */}
-      <div className="p-2.5 rounded-xl bg-slate-900/40 border border-slate-800 text-[11px] text-slate-400">
-        <span className="font-semibold text-slate-300">
-          {isTe ? 'మోతాదు నియమం: ' : 'Dosage Policy: '}
-        </span>
-        <span>
-          {isTe
-            ? 'పంట, తెగులు తీవ్రత, మరియు స్ప్రేయర్ రకం ఆధారంగా మాత్రమే సరైన మోతాదు నిర్ణయించబడుతుంది. భూమి విస్తీర్ణం ఆధారంగా మోతాదును అంచనా వేయరాదు. లేబుల్ వివరాలు లేదా నిపుణుడిని సంప్రదించండి.'
-            : 'Pesticide dosages depend on formulation, crop stage, water volume, and equipment. Dosages are never calculated using land area alone. Follow verified label instructions.'}
-        </span>
-      </div>
-
-      {/* 6. Footer Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-800">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onCheckWeather}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800 text-xs font-medium transition-colors cursor-pointer"
-          >
-            <CloudSun className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{isTe ? 'స్ప్రే వాతావరణం పరిశీలించు' : 'Check Spray Weather'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onSaveToDiary}
-            disabled={isSaved}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-              isSaved
-                ? 'bg-slate-800 text-slate-400 border border-slate-700'
-                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700'
-            }`}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
-            <span>
-              {isSaved
-                ? isTe
-                  ? 'డైరీలో నమోదయింది'
-                  : 'Recorded in Diary'
-                : isTe
-                ? 'స్ప్రే వివరాలు నమోదు చేయండి'
-                : 'Log Spray in Diary'}
+      {/* 3. On-Demand Area Input & Verified Spray Calculations */}
+      <div className="p-4 rounded-xl bg-[#F6FAF1] border border-[#DCE8D1] space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Calculator className="w-4 h-4 text-[#256E3A]" />
+            <span className="text-xs font-bold text-[#14281D]">
+              {isTe ? 'పిచికారీ చేయవలసిన విస్తీర్ణం:' : 'Area Being Treated (On-Demand):'}
             </span>
-          </button>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              min="0.1"
+              max="100"
+              step="0.5"
+              value={treatedAreaInput}
+              onChange={(e) => setTreatedAreaInput(e.target.value)}
+              className="w-20 px-2.5 py-1 text-center font-bold text-sm bg-white border border-[#CBD9BE] rounded-lg text-[#14281D] focus:outline-none focus:ring-2 focus:ring-[#256E3A]"
+            />
+            <span className="text-xs font-bold text-[#4A6052]">
+              {isTe ? 'ఎకరాలు (Acres)' : 'Acres'}
+            </span>
+          </div>
         </div>
 
-        <span className="text-[11px] text-slate-500">IRAC/FRAC Database Sync</span>
+        {/* Calculation Result */}
+        {calculation.isCalculable ? (
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#E2EBD6]">
+            <div className="bg-white p-3 rounded-lg border border-[#DCE8D1]">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#4A6052] block">
+                {isTe ? 'మొత్తం మందు పరిమాణం' : 'Total Chemical Required'}
+              </span>
+              <span className="text-base sm:text-lg font-black text-[#256E3A] tabular-nums">
+                {calculation.totalChemicalText}
+              </span>
+              <span className="block text-[10px] text-[#5C6F64] mt-0.5">
+                ({dosagePerAcre} ml/g per acre)
+              </span>
+            </div>
+
+            <div className="bg-white p-3 rounded-lg border border-[#DCE8D1]">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#4A6052] block">
+                {isTe ? 'కావలసిన నీటి పరిమాణం' : 'Total Water Required'}
+              </span>
+              <span className="text-base sm:text-lg font-black text-[#256E3A] tabular-nums">
+                {calculation.totalWaterLiters} <span className="text-xs font-normal">Liters</span>
+              </span>
+              <span className="block text-[10px] text-[#5C6F64] mt-0.5">
+                ({waterPerAcre} L per acre)
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="p-3 rounded-lg bg-[#FEF2F2] border border-[#FECACA] flex items-start gap-2.5 text-xs text-[#991B1B]">
+            <AlertTriangle className="w-4 h-4 text-[#DC2626] shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              {isTe
+                ? 'ఈ పంటకు లేబుల్ ఆధారిత మోతాదు ధృవీకరించబడలేదు. అంచనాతో మందులు లేదా రసాయనాల కలయికలు (Tank Mix) వాడవద్దు.'
+                : 'No approved label dosage verified for this specific crop. Never guess chemical dosage or tank mixes without authorized manufacturer guidance.'}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* 4. Rainfastness & Safety Warnings */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+        {details?.rainfastHours && (
+          <div className="p-2.5 rounded-lg bg-[#FBFDF9] border border-[#EAEFE2] flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[#256E3A]" />
+            <span>
+              {isTe ? 'వర్షం నిరోధకత సమయం:' : 'Rainfast Duration:'}{' '}
+              <strong className="text-[#14281D]">{details.rainfastHours}</strong>
+            </span>
+          </div>
+        )}
+        <div className="p-2.5 rounded-lg bg-[#FBFDF9] border border-[#EAEFE2] flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4 text-amber-600" />
+          <span>
+            {isTe ? 'రక్షణ సూచన:' : 'Safety Precaution:'}{' '}
+            <strong className="text-[#14281D]">Wear PPE mask & gloves</strong>
+          </span>
+        </div>
+      </div>
+
+      {/* 5. Action Footer */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#EAEFE2]">
+        <button
+          type="button"
+          onClick={onCheckWeather}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#14281D] text-xs font-bold transition-all shadow-xs cursor-pointer"
+        >
+          <CloudSun className="w-4 h-4 text-[#256E3A]" />
+          <span>{isTe ? 'స్ప్రే వాతావరణం పరిశీలించు' : 'Check Spray Weather'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={isSaved}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
+            isSaved
+              ? 'bg-[#EAEFE2] text-[#5C6F64] border border-[#D9E2CE]'
+              : 'bg-[#256E3A] hover:bg-[#1E582E] text-white'
+          }`}
+        >
+          <BookmarkPlus className="w-4 h-4" />
+          <span>
+            {isSaved
+              ? isTe ? 'డైరీలో భద్రపరచబడింది' : 'Saved to Field Diary'
+              : isTe ? 'ఫీల్డ్ డైరీలో నమోదు చేయండి' : 'Log Treatment to Diary'}
+          </span>
+        </button>
       </div>
     </div>
   );

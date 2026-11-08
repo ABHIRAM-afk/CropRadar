@@ -1,18 +1,23 @@
 @import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
     --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-telugu: 'Noto Sans Telugu', -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
+    --bg-canvas: #F8FAF5;
+    --text-forest: #14281D;
+    --primary-crop: #256E3A;
+    --accent-lime: #65A30D;
+    --border-light: #E2E8D8;
   }
 
   body {
     font-family: var(--font-sans);
-    background-color: #080D1B;
-    color: #F8FAFC;
+    background-color: #F8FAF5;
+    color: #14281D;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
   }
 
   /* When Telugu language is active or for Telugu elements */
@@ -21,36 +26,37 @@
   }
 }
 
-/* Custom scrollbar for conversational interface */
+/* Custom scrollbar for conversational interface in light theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: #F1F5EB;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.7);
+  background: #CBD5BF;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 0.9);
+  background: #A3B394;
 }
 
-/* Leaflet dark theme styling adjustments */
+/* Leaflet light agritech theme styling adjustments */
 .leaflet-container {
-  background-color: #0b1120 !important;
+  background-color: #EBF0E6 !important;
   font-family: inherit;
 }
 
 .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-  background: #10182A !important;
-  color: #F8FAFC !important;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  background: #FFFFFF !important;
+  color: #14281D !important;
+  border: 1px solid #D9E2CE;
+  box-shadow: 0 10px 25px -5px rgba(20, 40, 29, 0.12);
+  border-radius: 12px !important;
 }
 
 .leaflet-popup-content {

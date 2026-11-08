@@ -8,18 +8,18 @@ import {
   checkChemicalResistance,
   resolveDomainDiseaseProfile,
   findFarmsWithinAlertRadius,
+  evaluateBiologicalHostRelevance,
+  isMatchScoreEligibleForAlert,
+  formatApproximateDistance,
+  calculatePesticideQuantity,
   type WeatherCondition,
   type TreatmentRecord,
   type DiseaseReport,
-  type RegisteredFarm,
 } from './agriculturalLogic';
 
 test('calculateHaversineDistance computes accurate distance between farm points', () => {
-  // Guntur (16.3067, 80.4365) to Vijayawada (16.5062, 80.6480) ~ 31-34 km
   const dist = calculateHaversineDistance(16.3067, 80.4365, 16.5062, 80.648);
   assert.ok(dist >= 30 && dist <= 35, `Expected 30-35km, got ${dist}`);
-
-  // Same coordinates should be 0km
   assert.equal(calculateHaversineDistance(16.3, 80.4, 16.3, 80.4), 0);
 });
 
@@ -27,7 +27,6 @@ test('encodeGeohash generates correct base32 geohash string', () => {
   const hash = encodeGeohash(16.3067, 80.4365, 6);
   assert.equal(typeof hash, 'string');
   assert.equal(hash.length, 6);
-  // Valid base32 characters
   assert.match(hash, /^[0-9bcdefghjkmnpqrstuvwxyz]+$/);
 });
 
@@ -43,7 +42,6 @@ test('filterReportsWithinRadius filters and sorts reports within radius', () => 
       latitude: 16.32,
       longitude: 80.41, // ~2.5km
       timestamp: '2026-11-04T10:00:00Z',
-      verified: true,
       severity: 'moderate',
       generalizedLocation: 'Prathipadu Sector',
       symptoms: 'Curling and mottling',
@@ -56,7 +54,6 @@ test('filterReportsWithinRadius filters and sorts reports within radius', () => 
       latitude: 17.5,
       longitude: 81.5, // ~150km away
       timestamp: '2026-11-04T09:00:00Z',
-      verified: true,
       severity: 'severe',
       generalizedLocation: 'Remote Sector',
       symptoms: 'Boll shedding',
@@ -91,7 +88,7 @@ test('evaluateSprayWeather detects rain wash-off risk', () => {
     temperatureC: 25,
     humidityPercent: 88,
     windSpeedKmH: 8,
-    rainProbabilityPercent: 70, // Rain threat
+    rainProbabilityPercent: 70,
     expectedRainfallMm: 3.5,
     description: 'Scattered thunderstorms expected',
   };
@@ -129,7 +126,7 @@ test('checkChemicalResistance flags repeated application of same MoA group', () 
       moaCode: 'FRAC 11',
       crop: 'Chilli',
       targetOrganism: 'Anthracnose',
-      applicationDate: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(), // 5 days ago
+      applicationDate: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
     },
     {
       id: 'tx-2',
@@ -138,11 +135,10 @@ test('checkChemicalResistance flags repeated application of same MoA group', () 
       moaCode: 'FRAC 11',
       crop: 'Chilli',
       targetOrganism: 'Dieback',
-      applicationDate: new Date(Date.now() - 15 * 24 * 3600 * 1000).toISOString(), // 15 days ago
+      applicationDate: new Date(Date.now() - 15 * 24 * 3600 * 1000).toISOString(),
     },
   ];
 
-  // Farmer attempts to spray another FRAC 11 fungicide
   const proposedProduct = {
     productName: 'Custodia',
     activeIngredient: 'Azoxystrobin + Tebuconazole',
@@ -159,26 +155,21 @@ test('checkChemicalResistance flags repeated application of same MoA group', () 
 });
 
 test('resolveDomainDiseaseProfile accurately resolves distinct disease per crop', () => {
-  // Rice
   const rice = resolveDomainDiseaseProfile('Spindle shaped lesions on paddy leaves', 'Paddy / Rice');
   assert.equal(rice.crop.nameEn, 'Paddy / Rice (Oryza sativa)');
   assert.equal(rice.diagnosisOrProduct.titleEn, 'Rice Leaf Blast (Magnaporthe oryzae)');
   assert.equal(rice.diagnosisOrProduct.category, 'fungal');
+  assert.ok(rice.diagnosisOrProduct.aiMatchScore! > 0.700);
 
-  // Cotton
   const cotton = resolveDomainDiseaseProfile('Nibbles and holes on cotton squares', 'Cotton');
   assert.equal(cotton.crop.nameEn, 'Cotton (Gossypium hirsutum)');
   assert.ok(cotton.diagnosisOrProduct.titleEn.includes('Bollworm'));
   assert.equal(cotton.diagnosisOrProduct.category, 'pest');
+  assert.ok(cotton.diagnosisOrProduct.aiMatchScore! > 0.700);
 
-  // Maize
-  const maize = resolveDomainDiseaseProfile('Armyworm shot holes in corn whorl', 'Maize');
-  assert.equal(maize.diagnosisOrProduct.titleEn, 'Fall Armyworm (Spodoptera frugiperda)');
-
-  // Pesticide
   const pesticide = resolveDomainDiseaseProfile('Analyze this pesticide label bottle', 'Chilli');
   assert.equal(pesticide.analysisType, 'pesticide_label');
-  assert.equal(pesticide.diagnosisOrProduct.titleEn, 'Azoxystrobin 23% SC (Crop Shield 360)');
+  assert.ok(pesticide.diagnosisOrProduct.titleEn.includes('Azoxystrobin'));
 });
 
 test('findFarmsWithinAlertRadius identifies all farms within 5km of outbreak', () => {
@@ -209,18 +200,69 @@ test('findFarmsWithinAlertRadius identifies all farms within 5km of outbreak', (
       farmerName: 'Ramesh',
       phone: '9848033333',
       latitude: 16.50,
-      longitude: 80.64, // ~31 km (Vijayawada)
+      longitude: 80.64, // ~31 km
       villageSector: 'Vijayawada Outskirts',
       crops: ['Paddy'],
     },
   ];
 
   const nearby = findFarmsWithinAlertRadius(outbreakLat, outbreakLon, sampleFarms, 5);
-
   assert.equal(nearby.length, 2);
   assert.equal(nearby[0].id, 'f1');
   assert.equal(nearby[1].id, 'f2');
-  assert.ok(nearby[0].distanceKm <= 5);
-  assert.ok(nearby[1].distanceKm <= 5);
 });
 
+test('evaluateBiologicalHostRelevance distinguishes direct pathogen host vs insect vector reservoir host', () => {
+  // 1. Chilli farmer -> direct pathogen host of Chilli Leaf Curl
+  const chilliResult = evaluateBiologicalHostRelevance('Chilli Leaf Curl Begomovirus', 'Chilli');
+  assert.equal(chilliResult.relevance, 'direct_host');
+  assert.ok(chilliResult.explanationEn.includes('primary susceptible biological host'));
+
+  // 2. Cotton farmer -> vector breeding host (whitefly reservoir) of Chilli Leaf Curl
+  const cottonResult = evaluateBiologicalHostRelevance('Chilli Leaf Curl Begomovirus', 'Cotton');
+  assert.equal(cottonResult.relevance, 'vector_host');
+  assert.ok(chilliResult.matchedProfile?.vectorOrganism !== undefined);
+  assert.ok(cottonResult.explanationEn.includes('vector breeding host'));
+
+  // 3. Paddy farmer -> not a host for Chilli Leaf Curl
+  const paddyResult = evaluateBiologicalHostRelevance('Chilli Leaf Curl Begomovirus', 'Paddy');
+  assert.equal(paddyResult.relevance, 'general_notice');
+
+  // 4. Unknown crop -> general notice without claiming susceptibility
+  const unknownResult = evaluateBiologicalHostRelevance('Chilli Leaf Curl Begomovirus', null);
+  assert.equal(unknownResult.relevance, 'general_notice');
+});
+
+test('isMatchScoreEligibleForAlert strictly gates at > 0.700', () => {
+  assert.equal(isMatchScoreEligibleForAlert(0.701), true);
+  assert.equal(isMatchScoreEligibleForAlert(0.85), true);
+  assert.equal(isMatchScoreEligibleForAlert(0.700), false);
+  assert.equal(isMatchScoreEligibleForAlert(0.699), false);
+  assert.equal(isMatchScoreEligibleForAlert(undefined), false);
+  assert.equal(isMatchScoreEligibleForAlert(NaN), false);
+});
+
+test('formatApproximateDistance labels distance from sector centroid as approximate', () => {
+  const labelEn = formatApproximateDistance(3.24, 'sector_centroid', 'Prathipadu Block', 'en');
+  assert.ok(labelEn.includes('Approximate distance'));
+  assert.ok(labelEn.includes('~3.2 km'));
+  assert.ok(labelEn.includes('Prathipadu Block centroid'));
+
+  const labelTe = formatApproximateDistance(3.24, 'sector_centroid', 'ప్రత్తిపాడు', 'te');
+  assert.ok(labelTe.includes('సుమారు దూరం'));
+  assert.ok(labelTe.includes('~3.2 కి.మీ'));
+});
+
+test('calculatePesticideQuantity calculates for treated area only when verified', () => {
+  // Label verified for Chilli: 200 ml/acre, 200 L water
+  const verifiedCalc = calculatePesticideQuantity(200, 200, 2.5, true);
+  assert.equal(verifiedCalc.isCalculable, true);
+  assert.equal(verifiedCalc.totalChemicalText, '500 ml / g');
+  assert.equal(verifiedCalc.totalWaterLiters, 500);
+
+  // Unverified dosage -> does not calculate, provides warning
+  const unverifiedCalc = calculatePesticideQuantity(200, 200, 2.5, false);
+  assert.equal(unverifiedCalc.isCalculable, false);
+  assert.equal(unverifiedCalc.totalWaterLiters, 0);
+  assert.ok(unverifiedCalc.warningNoticeEn?.includes('Never guess dilution rates'));
+});

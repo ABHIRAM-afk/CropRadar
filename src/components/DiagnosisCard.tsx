@@ -7,8 +7,11 @@ import {
   BookmarkPlus,
   CloudSun,
   ShieldCheck,
-  HelpCircle,
   Sparkles,
+  ExternalLink,
+  Calendar,
+  Layers,
+  ShieldAlert,
 } from 'lucide-react';
 import { DiagnosisDetails, Language } from '../types/agricultural';
 import { playAgriculturalSpeech, stopAgriculturalSpeech } from '../utils/audioSpeech';
@@ -31,12 +34,20 @@ export const DiagnosisCard: React.FC<DiagnosisCardProps> = ({
   const isTe = language === 'te';
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
-  const confidenceBadge =
-    data.diagnosisOrProduct.confidenceLevel === 'High'
-      ? 'text-emerald-400 bg-emerald-950/60 border-emerald-800/80'
-      : data.diagnosisOrProduct.confidenceLevel === 'Moderate'
-      ? 'text-amber-400 bg-amber-950/60 border-amber-800/80'
-      : 'text-slate-400 bg-slate-800 border-slate-700';
+  const matchScore = data.diagnosisOrProduct.aiMatchScore ?? 0.85;
+  const isEligibleForAlert = matchScore > 0.70;
+
+  // Determine clear scannable Risk Level
+  const isHighRisk = matchScore > 0.80 || data.diagnosisOrProduct.category === 'viral';
+  const isModerateRisk = !isHighRisk && (matchScore > 0.60 || data.diagnosisOrProduct.category === 'fungal' || data.diagnosisOrProduct.category === 'bacterial');
+
+  const riskLabelEn = isHighRisk ? 'High Risk' : isModerateRisk ? 'Moderate Risk' : 'Low / Manageable';
+  const riskLabelTe = isHighRisk ? 'తీవ్రమైన రిస్క్' : isModerateRisk ? 'మధ్యస్థ రిస్క్' : 'తక్కువ రిస్క్';
+  const riskBadgeStyle = isHighRisk
+    ? 'bg-rose-50 border-rose-300 text-rose-950 font-black'
+    : isModerateRisk
+    ? 'bg-amber-50 border-amber-300 text-amber-950 font-black'
+    : 'bg-emerald-50 border-emerald-300 text-emerald-950 font-black';
 
   const speakSummary = () => {
     if (isPlayingAudio) {
@@ -58,171 +69,186 @@ export const DiagnosisCard: React.FC<DiagnosisCardProps> = ({
   };
 
   return (
-    <div className="w-full bg-[#10182A] border border-slate-800 rounded-2xl p-4 sm:p-5 text-slate-200 shadow-xl space-y-4">
-      {/* 1. Header: Crop & Confidence Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-800">
+    <div className="w-full bg-white border border-[#E2E8D8] rounded-3xl p-5 sm:p-6 text-[#14281D] shadow-sm space-y-5 transition-all">
+      {/* 1. Top Section: Crop Header, Audio Button & Risk Badge */}
+      <div className="flex flex-wrap items-start justify-between gap-3 pb-3.5 border-b border-[#EAEFE2]">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-1">
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#256E3A] mb-1">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>{isTe ? 'పంట వ్యాధి నిర్ధారణ' : 'AI Crop Pathology Analysis'}</span>
+            <span>{isTe ? 'AI పంట ఆరోగ్య విశ్లేషణ' : 'AI Crop Pathology Analysis'}</span>
           </div>
-          <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+          <h2 className="text-lg sm:text-xl font-black text-[#14281D] flex items-center gap-2">
             <span>{isTe ? data.crop.nameTe : data.crop.nameEn}</span>
-            <span className="text-xs font-normal text-slate-400">
+            <span className="text-xs font-semibold text-[#5C6F64]">
               ({data.crop.plantPart})
             </span>
           </h2>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Confidence Badge */}
-          <span
-            className={`px-2.5 py-1 rounded-full text-xs font-medium border ${confidenceBadge}`}
-          >
-            {isTe ? 'ఖచ్చితత్వం:' : 'Confidence:'}{' '}
-            {data.diagnosisOrProduct.confidenceLevel}
-          </span>
-
-          {/* Voice Output (Speech Synthesis) */}
+          {/* Audio Speech Output */}
           <button
             type="button"
             onClick={speakSummary}
             title={isTe ? 'సారాంశం వినండి' : 'Listen to audio explanation'}
             aria-label="Listen to audio explanation"
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-medium transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#256E3A]/10 hover:bg-[#256E3A]/20 border border-[#256E3A]/30 text-[#256E3A] text-xs font-bold transition-colors cursor-pointer shadow-2xs"
           >
             {isPlayingAudio ? (
-              <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+              <VolumeX className="w-3.5 h-3.5 text-rose-600" />
             ) : (
-              <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+              <Volume2 className="w-3.5 h-3.5 text-[#256E3A]" />
             )}
             <span>{isPlayingAudio ? (isTe ? 'ఆపండి' : 'Stop') : isTe ? 'వినండి' : 'Listen'}</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Suspected Condition */}
-      <div className="bg-slate-900/80 rounded-xl p-3.5 border border-slate-800">
-        <div className="flex items-start gap-2.5">
-          <div className="mt-0.5 p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 shrink-0">
-            <AlertTriangle className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">
-              {isTe ? 'అనుమానిత తెగులు / సమస్య' : 'Suspected Condition'}
+      {/* 2. Primary Pathology Diagnosis Banner with Scannable Risk Level */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF5] border border-[#DCE8D1] space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#4A6052] block">
+              {isTe ? 'అనుమానిత తెగులు / వ్యాధి' : 'Suspected Condition'}
             </span>
-            <h3 className="text-sm sm:text-base font-semibold text-rose-300 mt-0.5">
+            <h3 className="text-lg sm:text-xl font-black text-[#14281D] tracking-tight">
               {isTe ? data.diagnosisOrProduct.titleTe : data.diagnosisOrProduct.titleEn}
             </h3>
-            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-              {isTe
-                ? data.diagnosisOrProduct.confidenceNoteTe
-                : data.diagnosisOrProduct.confidenceNoteEn}
-            </p>
           </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Risk Level Badge */}
+            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs border ${riskBadgeStyle} shadow-2xs`}>
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>{isTe ? riskLabelTe : riskLabelEn}</span>
+            </div>
+
+            {/* AI Visual Match Score Badge */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-mono font-bold bg-white border border-[#CBD9BE] text-[#256E3A] shadow-2xs">
+              <span>{isTe ? 'స్కోర్:' : 'Match:'}</span>
+              <span className="tabular-nums font-black">{(matchScore * 100).toFixed(1)}%</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Mandatory AI-Assisted Notice */}
+        <div className="pt-2 border-t border-[#EAEFE2] flex items-center justify-between text-xs text-[#5C6F64]">
+          <div className="flex items-center gap-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-[#65A30D]"></span>
+            <span className="font-semibold text-[#14281D]">
+              {isTe
+                ? 'AI-ఆధారిత పరిశీలన · క్షేత్రస్థాయిలో ధృవీకరించబడలేదు'
+                : 'AI-assisted, not field-confirmed'}
+            </span>
+          </div>
+          <span className="text-[11px] text-[#7E9085]">
+            {isEligibleForAlert
+              ? (isTe ? '✓ కమ్యూనిటీ అలెర్ట్ అర్హత (>70%)' : '✓ Alert-eligible pattern (>0.700)')
+              : (isTe ? 'పరిమితి లోపు (≤70%)' : 'Sub-threshold match (≤0.700)')}
+          </span>
         </div>
       </div>
 
-      {/* 3. Supporting Visual Observations */}
-      <div>
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-          {isTe ? 'గమనించిన లక్షణాలు (Symptoms)' : 'Supporting Visual Observations'}
+      {/* 3. Observed Field Symptoms */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#374B3F]">
+          {isTe ? 'గుర్తించిన వ్యాధి లక్షణాలు' : 'Key Visual Observations'}
         </h4>
-        <ul className="space-y-1.5 text-xs text-slate-300">
-          {(isTe ? data.observationsTe : data.observationsEn).map((obs, idx) => (
-            <li key={idx} className="flex items-start gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
-              <span>{obs}</span>
+        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#14281D]">
+          {(isTe ? data.observationsTe : data.observationsEn).map((obs, i) => (
+            <li key={i} className="flex items-start gap-2 bg-[#F8FAF5] p-3 rounded-xl border border-[#EAEFE2]">
+              <span className="text-[#256E3A] font-bold text-sm leading-none">•</span>
+              <span className="font-medium">{obs}</span>
             </li>
           ))}
         </ul>
       </div>
 
-      {/* 4. Action Protocol: Immediate vs Preventive */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-        {/* Immediate Steps */}
-        <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-800">
-          <h4 className="text-xs font-bold text-amber-300 flex items-center gap-1.5 mb-2">
-            <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" />
-            <span>{isTe ? 'తక్షణ చర్యలు (Immediate Actions)' : 'Immediate Actions'}</span>
-          </h4>
-          <ul className="space-y-1.5 text-xs text-slate-300">
-            {(isTe ? data.immediateActionsTe : data.immediateActionsEn).map((act, i) => (
-              <li key={i} className="flex items-start gap-1.5">
-                <span className="text-amber-400 shrink-0 font-bold">›</span>
-                <span>{act}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {/* 4. University Extension-Verified Non-Chemical Precautions (ANGRAU / ICAR) */}
+      {data.extensionPrecautions && data.extensionPrecautions.length > 0 && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#FFFDF5] border border-[#F3E7C4] space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-black text-[#8A6100]">
+              <ShieldCheck className="w-4 h-4 text-[#8A6100]" />
+              <span>{isTe ? 'అధికారిక నివారణ సూచనలు (ANGRAU / ICAR)' : 'University Extension Precautions (Non-Chemical)'}</span>
+            </div>
+            {data.extensionPrecautions[0]?.reviewDate && (
+              <span className="text-[10px] text-[#8A6100]/80 font-mono flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                {isTe ? 'సమీక్ష:' : 'Reviewed:'} {data.extensionPrecautions[0].reviewDate}
+              </span>
+            )}
+          </div>
 
-        {/* Preventive Measures */}
-        <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-800">
-          <h4 className="text-xs font-bold text-emerald-300 flex items-center gap-1.5 mb-2">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{isTe ? 'ముందస్తు నివారణ (Preventive IPM)' : 'Preventive IPM Measures'}</span>
-          </h4>
-          <ul className="space-y-1.5 text-xs text-slate-300">
-            {(isTe ? data.preventiveMeasuresTe : data.preventiveMeasuresEn).map((prev, i) => (
-              <li key={i} className="flex items-start gap-1.5">
-                <span className="text-emerald-400 shrink-0 font-bold">›</span>
-                <span>{prev}</span>
-              </li>
+          <div className="space-y-2">
+            {data.extensionPrecautions.map((prec, i) => (
+              <div key={i} className="text-xs text-[#3E2F00] bg-white p-3 rounded-xl border border-[#EEDB9F] shadow-2xs space-y-1.5">
+                <p className="font-semibold leading-relaxed">
+                  {isTe ? prec.actionTe : prec.actionEn}
+                </p>
+                <div className="flex items-center justify-between text-[10px] text-[#8A6100]/90 pt-1 border-t border-[#F3E7C4]">
+                  <span>{prec.sourceAuthority}</span>
+                  {prec.sourceUrl && (
+                    <a
+                      href={prec.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-0.5 text-[#256E3A] hover:underline font-bold"
+                    >
+                      <span>{isTe ? 'అధికారిక మూలం' : 'Official Citation'}</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  )}
+                </div>
+              </div>
             ))}
-          </ul>
-        </div>
-      </div>
-
-      {/* Expert Verification Advisory Note */}
-      {data.requiresExpertVerification && (
-        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/40 border border-slate-800 text-[11px] text-slate-400">
-          <HelpCircle className="w-4 h-4 text-slate-400 shrink-0" />
-          <span>
-            {isTe
-              ? 'గమనిక: ఈ AI నిర్ధారణ ప్రాథమిక సూచన మాత్రమే. సందేహం ఉంటే స్థానిక వ్యవసాయ అధికారి లేదా KVK శాస్త్రవేత్తను సంప్రదించండి.'
-              : 'Advisory Note: AI image analysis is preliminary. Confirm with a qualified agricultural officer or KVK extension agent before large-scale application.'}
-          </span>
+          </div>
         </div>
       )}
 
-      {/* 5. Quick Actions Footer */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-800">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onSaveToDiary}
-            disabled={isSaved}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-              isSaved
-                ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700'
-            }`}
-          >
-            <BookmarkPlus className="w-3.5 h-3.5 text-emerald-400" />
-            <span>
-              {isSaved
-                ? isTe
-                  ? 'డైరీలో భద్రపరచబడింది'
-                  : 'Saved to Diary'
-                : isTe
-                ? 'ఫీల్డ్ డైరీలో భద్రపరచు'
-                : 'Save to Field Diary'}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onCheckWeather}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-medium transition-colors cursor-pointer"
-          >
-            <CloudSun className="w-3.5 h-3.5 text-amber-400" />
-            <span>{isTe ? 'స్ప్రే వాతావరణం చూడండి' : 'Check Spray Weather'}</span>
-          </button>
+      {/* 5. Immediate Sustainable Next Actions (IPM) */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#374B3F]">
+          {isTe ? 'వెంటనే చేపట్టవలసిన తదుపరి చర్యలు (IPM)' : 'Immediate Management Steps (IPM)'}
+        </h4>
+        <div className="space-y-2 text-xs text-[#14281D]">
+          {(isTe ? data.immediateActionsTe : data.immediateActionsEn).map((act, i) => (
+            <div key={i} className="flex items-start gap-2.5 bg-[#F8FAF5] p-3 rounded-xl border border-[#DCE8D1]">
+              <CheckCircle2 className="w-4 h-4 text-[#256E3A] shrink-0 mt-0.5" />
+              <span className="font-semibold">{act}</span>
+            </div>
+          ))}
         </div>
+      </div>
 
-        <span className="text-[11px] text-slate-500">
-          Crop Radar PathoEngine
-        </span>
+      {/* 6. Action Footer: Save to Diary & Check Weather */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-3.5 border-t border-[#EAEFE2]">
+        <button
+          type="button"
+          onClick={onCheckWeather}
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#14281D] text-xs font-bold transition-all shadow-2xs cursor-pointer"
+        >
+          <CloudSun className="w-4 h-4 text-[#256E3A]" />
+          <span>{isTe ? 'స్ప్రే వాతావరణం పరిశీలించు' : 'Check Spray Weather'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onSaveToDiary}
+          disabled={isSaved}
+          className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-black transition-all shadow-2xs cursor-pointer ${
+            isSaved
+              ? 'bg-[#EAEFE2] text-[#5C6F64] border border-[#D9E2CE]'
+              : 'bg-[#256E3A] hover:bg-[#1E582E] text-white'
+          }`}
+        >
+          <BookmarkPlus className="w-4 h-4" />
+          <span>
+            {isSaved
+              ? isTe ? 'డైరీలో భద్రపరచబడింది' : 'Saved to Field Diary'
+              : isTe ? 'ఫీల్డ్ డైరీలో భద్రపరచు' : 'Save to Field Diary'}
+          </span>
+        </button>
       </div>
     </div>
   );

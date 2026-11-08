@@ -4,11 +4,13 @@ import {
   Radar,
   AlertTriangle,
   MapPin,
-  CheckCircle2,
   Clock,
   PlusCircle,
   Shield,
   Layers,
+  Sparkles,
+  CheckCircle2,
+  ExternalLink,
 } from 'lucide-react';
 import L from 'leaflet';
 import { DiseaseReport, Language } from '../types/agricultural';
@@ -17,7 +19,8 @@ interface DiseaseRadarModalProps {
   isOpen: boolean;
   onClose: () => void;
   reports: DiseaseReport[];
-  farmerLocation: { lat: number; lon: number; name: string };
+  farmerLocation: { lat: number; lon: number; name: string; hasExplicitLocation?: boolean };
+  selectedOutbreakId?: string | null;
   onReportOutbreak: (newReport: Partial<DiseaseReport>) => Promise<void>;
   language: Language;
 }
@@ -27,23 +30,32 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
   onClose,
   reports,
   farmerLocation,
+  selectedOutbreakId,
   onReportOutbreak,
   language,
 }) => {
   const isTe = language === 'te';
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerMapRef = useRef<Map<string, L.Marker>>(new Map());
   const [activeTab, setActiveTab] = useState<'map' | 'report'>('map');
   const [selectedReport, setSelectedReport] = useState<DiseaseReport | null>(null);
 
-  // Location source: GPS by default with manual override option
+  const hasFarmCoords = Boolean(
+    farmerLocation?.hasExplicitLocation &&
+    Number.isFinite(farmerLocation?.lat) &&
+    Number.isFinite(farmerLocation?.lon) &&
+    farmerLocation.lat !== 0
+  );
+
+  // Location source
   const [locationSource, setLocationSource] = useState<'gps' | 'manual'>('gps');
   const [gpsCoords, setGpsCoords] = useState<{ lat: number; lon: number }>({
-    lat: farmerLocation.lat,
-    lon: farmerLocation.lon,
+    lat: hasFarmCoords ? farmerLocation.lat : 16.3067,
+    lon: hasFarmCoords ? farmerLocation.lon : 80.4365,
   });
-  const [manualLat, setManualLat] = useState<string>(farmerLocation.lat.toString());
-  const [manualLon, setManualLon] = useState<string>(farmerLocation.lon.toString());
+  const [manualLat, setManualLat] = useState<string>(hasFarmCoords ? farmerLocation.lat.toString() : '');
+  const [manualLon, setManualLon] = useState<string>(hasFarmCoords ? farmerLocation.lon.toString() : '');
   const [isDetectingGps, setIsDetectingGps] = useState(false);
 
   // New report form state
@@ -51,7 +63,7 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
   const [formDisease, setFormDisease] = useState('');
   const [formCategory, setFormCategory] = useState<'fungal' | 'bacterial' | 'viral' | 'pest'>('pest');
   const [formSymptoms, setFormSymptoms] = useState('');
-  const [formSector, setFormSector] = useState('Local Farmlands (Sector 1)');
+  const [formSector, setFormSector] = useState('Local Farmlands (Sector Centroid)');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
@@ -88,8 +100,9 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
+      markerMapRef.current.clear();
     };
-  }, [isOpen, activeTab, reports]);
+  }, [isOpen, activeTab, reports, selectedOutbreakId, hasFarmCoords]);
 
   const initMap = () => {
     if (!mapContainerRef.current) return;
@@ -97,11 +110,35 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
       mapInstanceRef.current.remove();
       mapInstanceRef.current = null;
     }
+    markerMapRef.current.clear();
 
-    const { lat, lon } = farmerLocation;
+    // Determine initial center and target outbreak
+    const targetOutbreak = selectedOutbreakId
+      ? reports.find((r) => r.id === selectedOutbreakId)
+      : null;
+
+    let centerLat = 16.3067;
+    let centerLon = 80.4365;
+    let initialZoom = 11;
+
+    if (targetOutbreak && Number.isFinite(targetOutbreak.latitude) && Number.isFinite(targetOutbreak.longitude)) {
+      centerLat = targetOutbreak.latitude;
+      centerLon = targetOutbreak.longitude;
+      initialZoom = 13;
+      setSelectedReport(targetOutbreak);
+    } else if (hasFarmCoords) {
+      centerLat = farmerLocation.lat;
+      centerLon = farmerLocation.lon;
+      initialZoom = 12;
+    } else if (reports.length > 0 && Number.isFinite(reports[0].latitude) && Number.isFinite(reports[0].longitude)) {
+      centerLat = reports[0].latitude;
+      centerLon = reports[0].longitude;
+      initialZoom = 11;
+    }
+
     const map = L.map(mapContainerRef.current, {
-      center: [lat, lon],
-      zoom: 12,
+      center: [centerLat, centerLon],
+      zoom: initialZoom,
       zoomControl: true,
     });
 
@@ -110,66 +147,121 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
 
-    // 1. Farmer's Farm Marker
-    const farmIcon = L.divIcon({
-      className: 'custom-farm-icon',
-      html: `
-        <div style="background:#059669; color:#fff; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 0 15px rgba(16,185,129,0.7);">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-        </div>
-      `,
-      iconSize: [34, 34],
-      iconAnchor: [17, 17],
-    });
+    // Track placed marker positions to de-conflict overlapping coordinates
+    const placedPoints: Array<{ lat: number; lon: number }> = [];
 
-    L.marker([lat, lon], { icon: farmIcon })
-      .addTo(map)
-      .bindPopup(`<b>${isTe ? 'మీ వ్యవసాయ క్షేత్రం' : 'Your Farm Location'}</b><br/>${farmerLocation.name}`);
+    const getDeconflictedCoords = (rawLat: number, rawLon: number): [number, number] => {
+      let adjustedLat = rawLat;
+      let adjustedLon = rawLon;
+      const threshold = 0.0006;
+      let attempts = 0;
 
-    // 2. 5km Early Warning Perimeter Circle
-    L.circle([lat, lon], {
-      color: '#10b981',
-      fillColor: '#10b981',
-      fillOpacity: 0.08,
-      radius: 5000,
-      weight: 1.5,
-      dashArray: '4, 6',
-    })
-      .addTo(map)
-      .bindPopup(isTe ? '5 కి.మీ ముందస్తు హెచ్చరిక పరిధి' : '5 km Outbreak Warning Perimeter');
+      while (attempts < 12) {
+        const collides = placedPoints.some(
+          (p) => Math.hypot(p.lat - adjustedLat, p.lon - adjustedLon) < threshold
+        );
+        if (!collides) {
+          placedPoints.push({ lat: adjustedLat, lon: adjustedLon });
+          return [adjustedLat, adjustedLon];
+        }
+        attempts++;
+        const angle = (attempts * 2 * Math.PI) / 6;
+        const distance = 0.00075 * Math.ceil(attempts / 6);
+        adjustedLat = rawLat + distance * Math.sin(angle);
+        adjustedLon = rawLon + distance * Math.cos(angle);
+      }
 
-    // 3. Disease Outbreak Markers
+      placedPoints.push({ lat: adjustedLat, lon: adjustedLon });
+      return [adjustedLat, adjustedLon];
+    };
+
+    // 1. Farmer's Farm Marker (Placed ONLY if farmer has explicit verified coordinates)
+    if (hasFarmCoords) {
+      const [farmLat, farmLon] = getDeconflictedCoords(farmerLocation.lat, farmerLocation.lon);
+
+      const farmIcon = L.divIcon({
+        className: 'custom-farm-icon',
+        html: `
+          <div style="background:#256E3A; color:#fff; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 2px 10px rgba(37,110,58,0.5);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          </div>
+        `,
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
+      });
+
+      L.marker([farmLat, farmLon], { icon: farmIcon, zIndexOffset: 1500 })
+        .addTo(map)
+        .bindPopup(`<b>${isTe ? 'మీ పొలం లొకేషన్' : 'Your Farm Location'}</b><br/><span style="font-size:11px; color:#4A6052;">${farmerLocation.name || (isTe ? 'రైతు పొలం' : 'Farmer Farm')}</span>`);
+
+      // 5km Early Warning Perimeter Circle
+      L.circle([farmLat, farmLon], {
+        color: '#256E3A',
+        fillColor: '#256E3A',
+        fillOpacity: 0.08,
+        radius: 5000,
+        weight: 1.5,
+        dashArray: '4, 6',
+      })
+        .addTo(map)
+        .bindPopup(isTe ? '5 కి.మీ ముందస్తు హెచ్చరిక పరిధి' : '5 km Outbreak Warning Perimeter');
+    }
+
+    // 2. Disease Outbreak Markers (Centroid Coordinates)
     reports.forEach((rep) => {
+      if (!Number.isFinite(rep.latitude) || !Number.isFinite(rep.longitude)) return;
+
+      const [repLat, repLon] = getDeconflictedCoords(rep.latitude, rep.longitude);
+      const isSelected = selectedOutbreakId ? rep.id === selectedOutbreakId : false;
       const isSevere = rep.severity === 'severe';
-      const color = isSevere ? '#ef4444' : '#f59e0b';
+      const color = isSevere ? '#DC2626' : '#D97706';
       const catSymbol = rep.diseaseCategory === 'viral' ? 'V' : rep.diseaseCategory === 'fungal' ? 'F' : 'P';
 
+      const highlightRing = isSelected
+        ? 'border: 3px solid #F59E0B; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.5), 0 0 16px rgba(220, 38, 38, 0.8); transform: scale(1.15);'
+        : 'border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.25);';
+
       const reportIcon = L.divIcon({
-        className: 'custom-disease-icon',
+        className: `custom-disease-icon ${isSelected ? 'highlighted-outbreak' : ''}`,
         html: `
-          <div style="background:${color}; color:#fff; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid #fff; font-weight:bold; font-size:12px; box-shadow:0 0 12px ${color}; cursor:pointer;">
+          <div style="background:${color}; color:#fff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:12px; cursor:pointer; transition:all 0.2s ease-in-out; ${highlightRing}">
             ${catSymbol}
           </div>
         `,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15],
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
       });
 
-      const marker = L.marker([rep.latitude, rep.longitude], { icon: reportIcon }).addTo(map);
+      const marker = L.marker([repLat, repLon], {
+        icon: reportIcon,
+        zIndexOffset: isSelected ? 2500 : 1000,
+      }).addTo(map);
 
       marker.on('click', () => {
         setSelectedReport(rep);
       });
 
       marker.bindPopup(`
-        <div style="min-width:180px;">
-          <b style="color:${color};">${rep.diseaseName}</b><br/>
-          <span style="font-size:11px; color:#94a3b8;">${rep.crop} · ${rep.generalizedLocation}</span><br/>
-          <span style="font-size:11px; font-weight:600; color:${rep.verified ? '#10b981' : '#f59e0b'}">
-            ${rep.verified ? '✓ Verified Outbreak' : '⏳ Pending Review'}
+        <div style="min-width:200px; font-family:sans-serif;">
+          <b style="color:${color}; font-size:13px;">${rep.diseaseName}</b><br/>
+          <span style="font-size:11px; color:#4A6052;">${rep.crop} · ${rep.generalizedLocation}</span><br/>
+          <span style="font-size:10px; color:#5C6F64; display:block; margin-top:2px;">
+            🕒 ${rep.timestamp ? new Date(rep.timestamp).toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Recent Outbreak'}
           </span>
+          <span style="font-size:10px; font-weight:600; color:#256E3A; display:block; margin-top:2px;">
+            AI-assisted, not field-confirmed
+          </span>
+          ${isSelected ? '<span style="display:inline-block; margin-top:4px; padding:1px 6px; border-radius:4px; background:#FEF3C7; color:#92400E; font-size:10px; font-weight:bold;">★ Selected Alert</span>' : ''}
         </div>
       `);
+
+      markerMapRef.current.set(rep.id, marker);
+
+      if (isSelected) {
+        setTimeout(() => {
+          marker.openPopup();
+        }, 300);
+      }
     });
 
     mapInstanceRef.current = map;
@@ -195,18 +287,20 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
         diseaseName: formDisease || 'Suspected Infestation',
         diseaseCategory: formCategory,
         symptoms: formSymptoms,
-        generalizedLocation: `${formSector} (${locationSource === 'gps' ? 'GPS Verified' : 'Manual Entry'})`,
+        generalizedLocation: `${formSector} (~2 km centroid)`,
         latitude: finalLat,
         longitude: finalLon,
+        aiMatchScore: 0.85,
+        isAiAssisted: true,
       });
 
       setSubmitSuccess(true);
       setTimeout(() => {
         setSubmitSuccess(false);
         setActiveTab('map');
-      }, 1500);
+      }, 1000);
     } catch (err) {
-      console.error(err);
+      console.error('Error reporting outbreak:', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -219,186 +313,208 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label="Community disease radar"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
     >
-      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl my-6 flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-4xl bg-white border border-[#E2E8D8] rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-800 bg-slate-950/80">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#EAEFE2] bg-[#F8FAF5]">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-[#256E3A]/10 text-[#256E3A] border border-[#256E3A]/20">
               <Radar className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                <span>{isTe ? 'కమ్యూనిటీ డిసీజ్ రాడార్' : 'Community Disease Radar'}</span>
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800/80">
-                  5 km Alert Perimeter
-                </span>
+              <h2 className="text-base font-extrabold text-[#14281D]">
+                {isTe ? 'కమ్యూనిటీ డిసీజ్ రాడార్' : 'Community Disease Radar'}
               </h2>
-              <p className="text-xs text-slate-400">
-                {isTe
-                  ? 'పరిసర పొలాల్లో గుర్తించబడిన పంట తెగుళ్ల ముందస్తు పర్యవేక్షణ'
-                  : 'Geospatial agricultural outbreak monitoring & early proximity alerts'}
+              <p className="text-xs text-[#5C6F64]">
+                {isTe ? 'పరిసర ప్రాంతాల AI తెగుళ్ల నిఘా వ్యవస్థ' : 'AI-assisted community pest & disease intelligence'}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex bg-slate-800 p-1 rounded-lg">
+            {/* Tab switch */}
+            <div className="flex bg-[#F3F6EF] p-1 rounded-xl border border-[#D9E2CE]">
               <button
                 type="button"
                 onClick={() => setActiveTab('map')}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors cursor-pointer ${
-                  activeTab === 'map' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'map'
+                    ? 'bg-white text-[#14281D] shadow-xs'
+                    : 'text-[#5C6F64] hover:text-[#14281D]'
                 }`}
               >
-                {isTe ? 'మ్యాప్' : 'Live Map'}
+                {isTe ? 'రాడార్ మ్యాప్' : 'Radar Map'}
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('report')}
-                className={`flex items-center gap-1 px-3 py-1 rounded text-xs font-medium transition-colors cursor-pointer ${
-                  activeTab === 'report' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'report'
+                    ? 'bg-white text-[#14281D] shadow-xs'
+                    : 'text-[#5C6F64] hover:text-[#14281D]'
                 }`}
               >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span>{isTe ? 'తెగులు నివేదించండి' : 'Report Outbreak'}</span>
+                {isTe ? 'తెగులు నమోదు' : 'Report Outbreak'}
               </button>
             </div>
 
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close disease radar"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              aria-label="Close"
+              className="p-1.5 rounded-lg text-[#5C6F64] hover:text-[#14281D] hover:bg-[#EAEFE2] transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Body */}
-        {activeTab === 'map' ? (
-          <div className="flex flex-col lg:flex-row flex-1 overflow-hidden min-h-[460px]">
-            {/* Map Canvas */}
-            <div className="relative flex-1 bg-slate-950 min-h-[300px] lg:min-h-[460px]">
-              <div ref={mapContainerRef} className="w-full h-full" />
+        {/* Mandatory AI-Assisted Notice Banner */}
+        <div className="px-6 py-2 bg-[#F6FAF1] border-b border-[#DCE8D1] flex items-center justify-between text-xs text-[#4A6052]">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-[#256E3A] shrink-0" />
+            <span className="font-semibold text-[#14281D]">
+              {isTe
+                ? 'అన్ని నివేదికలు AI-ఆధారిత పరిశీలనలు · క్షేత్రస్థాయిలో ధృవీకరించబడలేదు'
+                : 'All alerts are AI-assisted detections and not field-confirmed.'}
+            </span>
+          </div>
+          <span className="text-[11px] text-[#5C6F64] hidden sm:inline">
+            {isTe ? 'గోప్యత కోసం లొకేషన్ ~2 కి.మీ సెంట్రాయిడ్' : 'Centroid jittered ~2 km for farm privacy'}
+          </span>
+        </div>
 
-              {/* Map floating legend */}
-              <div className="absolute top-3 right-3 z-[1000] bg-slate-900/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-700/80 text-[11px] space-y-1.5 shadow-lg text-slate-300">
-                <span className="font-bold text-white block uppercase tracking-wider text-[10px]">
-                  {isTe ? 'సూచిక' : 'Legend'}
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                  <span>{isTe ? 'మీ పొలం' : 'Your Farm'}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-                  <span>{isTe ? 'తీవ్రమైన తెగులు' : 'Severe Outbreak'}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                  <span>{isTe ? 'మితమైన తెగులు' : 'Moderate Outbreak'}</span>
-                </div>
-              </div>
+        {/* Body content */}
+        {activeTab === 'map' ? (
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            {/* Map Area */}
+            <div className="flex-1 relative min-h-[300px]">
+              <div ref={mapContainerRef} className="w-full h-full" />
             </div>
 
-            {/* Sidebar Outbreak List & Inspector */}
-            <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-slate-800 bg-slate-950/60 p-4 overflow-y-auto space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                  {isTe ? 'సమీప నివేదికలు' : 'Nearby Outbreak Reports'} ({reports.length})
-                </h3>
-                <span className="text-[11px] text-emerald-400 font-mono">Radius: 30 km</span>
+            {/* Outbreaks List & Details Sidebar */}
+            <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-[#EAEFE2] bg-[#F8FAF5] p-4 overflow-y-auto space-y-3">
+              {/* Farmer location status banner */}
+              <div className="px-3 py-2 rounded-xl bg-white border border-[#E2E8D8] text-[11px] flex items-center justify-between text-[#4A6052]">
+                <span className="font-bold flex items-center gap-1.5 truncate">
+                  <MapPin className="w-3.5 h-3.5 text-[#256E3A] shrink-0" />
+                  <span className="truncate">
+                    {hasFarmCoords
+                      ? (farmerLocation.name || (isTe ? 'మీ పొలం' : 'Your Farm'))
+                      : (isTe ? 'లొకేషన్ అందుబాటులో లేదు' : 'Location unavailable')}
+                  </span>
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                  hasFarmCoords
+                    ? 'bg-[#256E3A]/10 text-[#256E3A]'
+                    : 'bg-amber-100 text-amber-900 border border-amber-300'
+                }`}>
+                  {hasFarmCoords
+                    ? (isTe ? 'ధృవీకరించబడింది' : 'GPS Active')
+                    : (isTe ? 'అందుబాటులో లేదు' : 'Unavailable')}
+                </span>
               </div>
 
-              {selectedReport ? (
-                <div className="p-3 bg-slate-900 border border-slate-700 rounded-xl space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-rose-300">{selectedReport.diseaseName}</span>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#4A6052]">
+                {isTe ? `పరిసర ప్రాంతాల తెగుళ్లు (${reports.length})` : `Nearby Outbreak Alerts (${reports.length})`}
+              </h3>
+
+              {/* Selected report card if clicked */}
+              {selectedReport && (
+                <div className="p-3.5 rounded-xl bg-white border border-[#256E3A]/40 shadow-xs space-y-1.5 text-xs text-[#14281D]">
+                  <div className="flex items-start justify-between">
+                    <span className="font-extrabold text-[#14281D] text-sm">{selectedReport.diseaseName}</span>
                     <button
                       type="button"
                       onClick={() => setSelectedReport(null)}
-                      className="text-slate-400 hover:text-white"
+                      className="text-[#5C6F64] hover:text-[#14281D]"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <p className="text-slate-300">{selectedReport.crop}</p>
-                  <p className="text-slate-400 leading-relaxed text-[11px]">
-                    {selectedReport.symptoms}
-                  </p>
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-800">
-                    <span>{selectedReport.generalizedLocation}</span>
-                    <span className="tabular-nums font-semibold text-slate-300">
-                      {selectedReport.distanceKm} km away
+                  <p className="text-xs font-semibold text-[#256E3A]">{selectedReport.crop}</p>
+                  <p className="text-[11px] text-[#4A6052] leading-relaxed">{selectedReport.symptoms}</p>
+                  <div className="pt-1 border-t border-[#EAEFE2] flex items-center justify-between text-[10px] text-[#5C6F64]">
+                    <span>📍 {selectedReport.generalizedLocation}</span>
+                    <span className="font-bold text-[#256E3A]">
+                      AI Match: {((selectedReport.aiMatchScore || 0.85) * 100).toFixed(0)}%
                     </span>
                   </div>
                 </div>
-              ) : null}
+              )}
 
+              {/* Outbreaks List */}
               <div className="space-y-2">
-                {reports.map((rep) => (
-                  <button
-                    key={rep.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedReport(rep);
-                      if (mapInstanceRef.current) {
-                        mapInstanceRef.current.flyTo([rep.latitude, rep.longitude], 14);
-                      }
-                    }}
-                    className="w-full text-left p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-200 truncate">
-                        {rep.diseaseName}
-                      </span>
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                          rep.verified
-                            ? 'bg-emerald-950 text-emerald-400'
-                            : 'bg-amber-950 text-amber-400'
-                        }`}
-                      >
-                        {rep.verified ? 'Verified' : 'Pending'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1">
-                      <span>{rep.crop}</span>
-                      <span className="tabular-nums font-mono text-emerald-400">
-                        {rep.distanceKm} km
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-500 block truncate mt-0.5">
-                      📍 {rep.generalizedLocation}
-                    </span>
-                  </button>
-                ))}
+                {reports.map((rep) => {
+                  const isItemHighlighted = (selectedReport?.id === rep.id) || (selectedOutbreakId === rep.id);
+                  return (
+                    <button
+                      key={rep.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedReport(rep);
+                        if (mapInstanceRef.current && Number.isFinite(rep.latitude) && Number.isFinite(rep.longitude)) {
+                          mapInstanceRef.current.flyTo([rep.latitude, rep.longitude], 13);
+                        }
+                        const marker = markerMapRef.current.get(rep.id);
+                        if (marker) {
+                          marker.openPopup();
+                        }
+                      }}
+                      className={`w-full text-left p-3 rounded-xl border transition-all shadow-xs cursor-pointer ${
+                        isItemHighlighted
+                          ? 'bg-amber-50/70 border-amber-400 ring-2 ring-amber-300'
+                          : 'bg-white hover:bg-[#F3F6EF] border-[#D9E2CE]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#14281D] truncate">
+                          {rep.diseaseName}
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#256E3A]/10 text-[#256E3A] border border-[#256E3A]/20 shrink-0">
+                          AI-assisted
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-[#5C6F64] mt-1">
+                        <span>{rep.crop}</span>
+                        <span className="tabular-nums font-mono text-[#256E3A] font-bold">
+                          {rep.distanceKm ? `~${rep.distanceKm.toFixed(1)} km` : 'Near'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-[#5C6F64] mt-1 pt-1 border-t border-[#EAEFE2]">
+                        <span className="truncate max-w-[120px]">📍 {rep.generalizedLocation}</span>
+                        <span className="flex items-center gap-1 font-medium shrink-0">
+                          <Clock className="w-3 h-3 text-[#256E3A]" />
+                          {rep.timestamp ? new Date(rep.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
         ) : (
           /* Report Suspected Outbreak Form */
-          <form onSubmit={handleFormSubmit} className="p-6 space-y-4 max-w-xl mx-auto w-full">
-            <div className="p-3 bg-amber-950/30 border border-amber-500/30 rounded-xl text-amber-200 text-xs flex items-start gap-2">
-              <Shield className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <form onSubmit={handleFormSubmit} className="p-6 space-y-4 max-w-xl mx-auto w-full overflow-y-auto">
+            <div className="p-3.5 bg-[#FFFDF5] border border-[#F3E7C4] rounded-xl text-xs text-[#4A3B00] flex items-start gap-2.5">
+              <Shield className="w-4 h-4 text-[#8A6100] shrink-0 mt-0.5" />
               <span>
                 {isTe
-                  ? 'నిబంధన: రైతుల వ్యక్తిగత వివరాలు గోప్యంగా ఉంచబడతాయి. వ్యవసాయ అధికారి ధృవీకరించిన తర్వాత మాత్రమే పరిసర రైతులకు హెచ్చరిక జారీ చేయబడుతుంది.'
-                  : 'Privacy & Verification Rule: Your exact farm coordinates are never published publicly. Reports are stored as "Pending" until verified by an agricultural extension officer to avoid panic.'}
+                  ? 'గమనిక: రైతుల ఖచ్చితమైన పొలం కోఆర్డినేట్స్ గోప్యంగా ఉంచబడతాయి. AI గుర్తింపుల ఆధారంగా సమీప 5 కి.మీ రైతులకు ఆటోమేటిక్ అలెర్ట్ పంపబడుతుంది (AI-ఆధారిత పరిశీలన).'
+                  : 'Privacy & Automated Dispatch: Exact farm coordinates are private. Reports automatically notify nearby susceptible host crops within 5 km labeled as "AI-assisted, not field-confirmed".'}
               </span>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-[#4A6052] mb-1">
                 {isTe ? 'పంట పేరు' : 'Affected Crop'}
               </label>
               <select
                 value={formCrop}
                 onChange={(e) => setFormCrop(e.target.value)}
-                className="w-full py-2 px-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 text-xs focus:border-emerald-500 focus:outline-none"
+                className="w-full py-2 px-3 bg-white border border-[#D9E2CE] rounded-xl text-xs text-[#14281D] focus:ring-2 focus:ring-[#256E3A] focus:outline-none"
               >
                 <option value="Chilli (మిరప)">Chilli (మిరప)</option>
                 <option value="Paddy / Rice (వరి)">Paddy / Rice (వరి)</option>
@@ -411,26 +527,26 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-[#4A6052] mb-1">
                   {isTe ? 'అనుమానిత తెగులు పేరు' : 'Suspected Outbreak Name'}
                 </label>
                 <input
                   type="text"
                   value={formDisease}
                   onChange={(e) => setFormDisease(e.target.value)}
-                  placeholder="e.g. Chilli Leaf Curl / Armyworm"
-                  className="w-full py-2 px-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 text-xs focus:border-emerald-500 focus:outline-none"
+                  placeholder="e.g. Chilli Leaf Curl / Blast"
+                  className="w-full py-2 px-3 bg-white border border-[#D9E2CE] rounded-xl text-xs text-[#14281D] focus:ring-2 focus:ring-[#256E3A] focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-[#4A6052] mb-1">
                   {isTe ? 'వర్గం' : 'Category'}
                 </label>
                 <select
                   value={formCategory}
                   onChange={(e) => setFormCategory(e.target.value as any)}
-                  className="w-full py-2 px-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 text-xs focus:border-emerald-500 focus:outline-none"
+                  className="w-full py-2 px-3 bg-white border border-[#D9E2CE] rounded-xl text-xs text-[#14281D] focus:ring-2 focus:ring-[#256E3A] focus:outline-none"
                 >
                   <option value="pest">Pest / పురుగు</option>
                   <option value="fungal">Fungal / శిలీంధ్ర తెగులు</option>
@@ -440,155 +556,40 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
               </div>
             </div>
 
-            {/* Location Acquisition: GPS Default with Manual Override */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-medium text-slate-300">
-                  {isTe ? 'లొకేషన్ మూలం' : 'Location Source'}
-                </label>
-                <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-700">
-                  <button
-                    type="button"
-                    onClick={() => setLocationSource('gps')}
-                    className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                      locationSource === 'gps'
-                        ? 'bg-emerald-600 text-white font-semibold'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    {isTe ? '📍 GPS (డిఫాల్ట్)' : '📍 GPS (Default)'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLocationSource('manual')}
-                    className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                      locationSource === 'manual'
-                        ? 'bg-emerald-600 text-white font-semibold'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    {isTe ? '✏️ మాన్యువల్' : '✏️ Manual'}
-                  </button>
-                </div>
-              </div>
-
-              {locationSource === 'gps' ? (
-                <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-xs">
-                  <div className="flex items-center gap-2.5 text-emerald-300">
-                    <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <div>
-                      <span className="font-semibold block text-slate-200">
-                        {isTe ? 'GPS లైవ్ లొకేషన్ లాక్ చేయబడింది (డిఫాల్ట్)' : 'GPS Live Coordinate Lock (Default)'}
-                      </span>
-                      <span className="text-[11px] font-mono text-emerald-400">
-                        {gpsCoords.lat.toFixed(4)}° N, {gpsCoords.lon.toFixed(4)}° E
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={refreshGpsLocation}
-                    disabled={isDetectingGps}
-                    className="px-2.5 py-1 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 text-[11px] font-medium border border-emerald-500/30 cursor-pointer"
-                  >
-                    {isDetectingGps
-                      ? (isTe ? 'గుర్తిస్తోంది...' : 'Acquiring GPS...')
-                      : (isTe ? 'GPS రీఫ్రెష్' : 'Refresh GPS')}
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2.5 p-3 rounded-xl bg-slate-900 border border-slate-700">
-                  <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">
-                      {isTe ? 'అక్షాంశం (Latitude)' : 'Manual Latitude'}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.0001"
-                      value={manualLat}
-                      onChange={(e) => setManualLat(e.target.value)}
-                      placeholder="16.3067"
-                      className="w-full py-1.5 px-2.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-xs font-mono focus:border-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">
-                      {isTe ? 'రేఖాంశం (Longitude)' : 'Manual Longitude'}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.0001"
-                      value={manualLon}
-                      onChange={(e) => setManualLon(e.target.value)}
-                      placeholder="80.4365"
-                      className="w-full py-1.5 px-2.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-xs font-mono focus:border-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                {isTe ? 'ప్రాంతం (సాధారణ పేరు)' : 'Generalized Sector / Block'}
-              </label>
-              <input
-                type="text"
-                value={formSector}
-                onChange={(e) => setFormSector(e.target.value)}
-                placeholder="e.g. Tenali Rural Sector 3"
-                className="w-full py-2 px-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 text-xs focus:border-emerald-500 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                {isTe ? 'గమనించిన లక్షణాలు' : 'Observed Symptoms & Field Notes'}
+              <label className="block text-xs font-bold text-[#4A6052] mb-1">
+                {isTe ? 'గమనించిన లక్షణాలు' : 'Observed Symptoms'}
               </label>
               <textarea
                 rows={3}
                 value={formSymptoms}
                 onChange={(e) => setFormSymptoms(e.target.value)}
-                placeholder={
-                  isTe
-                    ? 'ఆకులు ముడుచుకోవడం, రంగు మారడం లేదా పురుగులు కనిపించడం వంటి వివరాలు...'
-                    : 'Describe leaf curl, spots, stem damage, or pest presence...'
-                }
-                className="w-full py-2 px-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 text-xs focus:border-emerald-500 focus:outline-none"
+                placeholder={isTe ? 'ఆకులు ముడుచుకుపోవడం, మచ్చలు మొదలైనవి...' : 'Describe leaf curling, lesions, or insect feeding...'}
+                className="w-full py-2 px-3 bg-white border border-[#D9E2CE] rounded-xl text-xs text-[#14281D] focus:ring-2 focus:ring-[#256E3A] focus:outline-none"
               />
             </div>
 
-            {submitSuccess && (
-              <div className="p-3 bg-emerald-950/60 border border-emerald-500/50 rounded-xl text-emerald-300 text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>
-                  {isTe
-                    ? 'నివేదిక నమోదు చేయబడింది! వ్యవసాయ అధికారి ధృవీకరణ కోసం పంపబడింది.'
-                    : 'Outbreak report recorded! Sent for agricultural officer verification.'}
-                </span>
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+            <div className="pt-2 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setActiveTab('map')}
-                className="px-4 py-2 text-xs text-slate-400 hover:text-slate-200 cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-white border border-[#D9E2CE] text-xs font-bold text-[#14281D] hover:bg-[#F3F6EF] cursor-pointer"
               >
                 {isTe ? 'రద్దు' : 'Cancel'}
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || !formSymptoms.trim()}
-                className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md disabled:opacity-50 cursor-pointer"
+                disabled={isSubmitting}
+                className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-bold shadow-xs cursor-pointer transition-all"
               >
-                {isSubmitting
-                  ? isTe
-                    ? 'నమోదు అవుతోంది...'
-                    : 'Submitting...'
-                  : isTe
-                  ? 'నివేదిక పంపండి'
-                  : 'Submit Outbreak Report'}
+                {submitSuccess ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{isTe ? 'హెచ్చరిక జారీ చేయబడింది!' : 'Alert Dispatched!'}</span>
+                  </>
+                ) : (
+                  <span>{isTe ? 'హెచ్చరిక జారీ చేయండి' : 'Dispatch Community Alert'}</span>
+                )}
               </button>
             </div>
           </form>

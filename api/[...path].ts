@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import app from '../server';
+import app from '../server.ts';
 
 export const config = {
   maxDuration: 60,

@@ -1,4 +1,5 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
@@ -19,13 +20,13 @@ import {
   type TreatmentRecord,
   type RegisteredFarm,
   type BiologicalPrecaution,
-} from './src/utils/agriculturalLogic';
+} from './src/utils/agriculturalLogic.ts';
 import {
   supabaseAdmin,
   isSupabaseConfigured,
   verifyUserToken,
   getSignedImageUrl,
-} from './src/lib/supabaseServer';
+} from './src/lib/supabaseServer.ts';
 
 dotenv.config();
 
@@ -1547,6 +1548,8 @@ You MUST respond in valid JSON format matching this structure:
       ? 'Gemini analysis took too long. Please try again with a smaller or clearer image.'
       : rawMsg.includes('API_KEY_INVALID') || rawMsg.includes('API key not valid')
       ? 'Invalid Gemini API key. Please check GEMINI_API_KEY in your Vercel project settings.'
+      : rawMsg.includes('quota') || rawMsg.includes('429') || rawMsg.includes('RESOURCE_EXHAUSTED')
+      ? 'Gemini API quota exceeded or rate limit reached. Please check your Gemini API plan or try again in a few minutes.'
       : rawMsg.includes('not found') || rawMsg.includes('404')
       ? 'Configured AI model is currently unavailable on this API key. Please verify your GEMINI_API_KEY model access.'
       : 'Gemini analysis failed to process this image. Please try again with a clearer leaf photo.';
@@ -2222,9 +2225,16 @@ async function startServer() {
   });
 }
 
+import { fileURLToPath } from 'url';
+
 // Start the HTTP listener in standalone development/production.
-// In Vercel serverless environments (VERCEL=1), the exported app handles requests.
-if (process.env.VERCEL !== '1') {
+// In Vercel serverless environments (VERCEL=1) or when imported as a module, the exported app handles requests.
+const isDirectRun = Boolean(
+  process.argv[1] &&
+  fileURLToPath(import.meta.url).replace(/\\/g, '/') === path.resolve(process.argv[1]).replace(/\\/g, '/')
+);
+
+if (isDirectRun && process.env.VERCEL !== '1') {
   startServer();
 }
 

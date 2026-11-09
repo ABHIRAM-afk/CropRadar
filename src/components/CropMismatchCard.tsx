@@ -38,15 +38,15 @@ export const CropMismatchCard: React.FC<CropMismatchCardProps> = ({
     <div
       role="alert"
       aria-label="Crop Mismatch Warning"
-      className="w-full bg-[#FFFDF5] border-2 border-amber-300 rounded-3xl p-5 sm:p-6 text-[#14281D] shadow-md space-y-4 my-2 transition-all"
+      className="w-full bg-[#FFFDF5] border-2 border-amber-300 rounded-3xl p-3.5 sm:p-6 text-[#14281D] shadow-md space-y-3.5 sm:space-y-4 my-2 transition-all"
     >
       {/* 1. Header Banner */}
-      <div className="flex items-start gap-3">
-        <div className="p-2.5 rounded-2xl bg-amber-100 text-amber-800 border border-amber-300 shrink-0 mt-0.5">
-          <AlertTriangle className="w-6 h-6 text-amber-700" />
+      <div className="flex items-start gap-2.5 sm:gap-3">
+        <div className="p-2 sm:p-2.5 rounded-2xl bg-amber-100 text-amber-800 border border-amber-300 shrink-0 mt-0.5">
+          <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-amber-700" />
         </div>
         <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider bg-amber-200/80 text-amber-950 border border-amber-300 mb-1">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-extrabold uppercase tracking-wider bg-amber-200/80 text-amber-950 border border-amber-300 mb-1">
             <span>{isTe ? '⚠️ పంట తేడా గుర్తించబడింది' : '⚠️ Crop Mismatch Detected'}</span>
           </div>
           <h3 className="text-base sm:text-lg font-black text-[#14281D] tracking-tight">
@@ -63,8 +63,8 @@ export const CropMismatchCard: React.FC<CropMismatchCardProps> = ({
       </div>
 
       {/* 2. Visual Comparison Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-        <div className="p-3.5 rounded-2xl bg-white border border-amber-200 shadow-2xs space-y-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 pt-1">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-amber-200 shadow-2xs space-y-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#7E9085] flex items-center gap-1">
             <Sprout className="w-3.5 h-3.5 text-amber-600" />
             <span>{isTe ? 'చిత్రంలో గుర్తించిన పంట' : 'Detected In Photo'}</span>
@@ -77,7 +77,7 @@ export const CropMismatchCard: React.FC<CropMismatchCardProps> = ({
           </span>
         </div>
 
-        <div className="p-3.5 rounded-2xl bg-white border border-[#E2E8D8] shadow-2xs space-y-1">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-[#E2E8D8] shadow-2xs space-y-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#7E9085] flex items-center gap-1">
             <ShieldAlert className="w-3.5 h-3.5 text-[#5C6F64]" />
             <span>{isTe ? 'ప్రస్తుత యాక్టివ్ సంభాషణ' : 'Current Active Thread'}</span>
@@ -99,12 +99,12 @@ export const CropMismatchCard: React.FC<CropMismatchCardProps> = ({
       </div>
 
       {/* 4. Action Buttons */}
-      <div className="flex flex-wrap items-center gap-2.5 pt-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5 pt-2">
         {existingMatchingCycle ? (
           <button
             type="button"
             onClick={() => onSwitchToExisting(existingMatchingCycle.id)}
-            className="flex-1 min-w-[220px] flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-black shadow-sm transition-all cursor-pointer"
+            className="w-full sm:flex-1 min-h-[42px] flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 rounded-2xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-black shadow-sm transition-all cursor-pointer"
           >
             <RefreshCw className="w-4 h-4" />
             <span>
@@ -118,7 +118,7 @@ export const CropMismatchCard: React.FC<CropMismatchCardProps> = ({
           <button
             type="button"
             onClick={() => onStartNewCrop(detectedEn, detectedTe)}
-            className="flex-1 min-w-[220px] flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-black shadow-sm transition-all cursor-pointer"
+            className="w-full sm:flex-1 min-h-[42px] flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 rounded-2xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-black shadow-sm transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>
@@ -133,7 +133,7 @@ export const CropMismatchCard: React.FC<CropMismatchCardProps> = ({
         <button
           type="button"
           onClick={onContinueCurrent}
-          className="px-4 py-3 rounded-2xl bg-white hover:bg-slate-50 border border-[#CBD9BE] text-xs font-bold text-[#4A6052] hover:text-[#14281D] transition-colors cursor-pointer"
+          className="w-full sm:w-auto min-h-[42px] px-4 py-2.5 sm:py-3 rounded-2xl bg-white hover:bg-slate-50 border border-[#CBD9BE] text-xs font-bold text-[#4A6052] hover:text-[#14281D] transition-colors cursor-pointer text-center"
         >
           {isTe
             ? `కాదు, ${activeCycleName} గానే ఇక్కడ విశ్లేషించండి`

@@ -69,15 +69,15 @@ export const DiagnosisCard: React.FC<DiagnosisCardProps> = ({
   };
 
   return (
-    <div className="w-full bg-white border border-[#E2E8D8] rounded-3xl p-5 sm:p-6 text-[#14281D] shadow-sm space-y-5 transition-all">
+    <div className="w-full bg-white border border-[#E2E8D8] rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 lg:p-6 text-[#14281D] shadow-sm space-y-4 sm:space-y-5 transition-all">
       {/* 1. Top Section: Crop Header, Audio Button & Risk Badge */}
-      <div className="flex flex-wrap items-start justify-between gap-3 pb-3.5 border-b border-[#EAEFE2]">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-2.5 pb-3 border-b border-[#EAEFE2]">
+        <div className="min-w-0">
           <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#256E3A] mb-1">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{isTe ? 'AI పంట ఆరోగ్య విశ్లేషణ' : 'AI Crop Pathology Analysis'}</span>
+            <Sparkles className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{isTe ? 'AI పంట ఆరోగ్య విశ్లేషణ' : 'AI Crop Pathology Analysis'}</span>
           </div>
-          <h2 className="text-lg sm:text-xl font-black text-[#14281D] flex items-center gap-2">
+          <h2 className="text-base sm:text-xl font-black text-[#14281D] flex items-center gap-2 flex-wrap">
             <span>{isTe ? data.crop.nameTe : data.crop.nameEn}</span>
             <span className="text-xs font-semibold text-[#5C6F64]">
               ({data.crop.plantPart})
@@ -85,14 +85,14 @@ export const DiagnosisCard: React.FC<DiagnosisCardProps> = ({
           </h2>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Audio Speech Output */}
           <button
             type="button"
             onClick={speakSummary}
             title={isTe ? 'సారాంశం వినండి' : 'Listen to audio explanation'}
             aria-label="Listen to audio explanation"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#256E3A]/10 hover:bg-[#256E3A]/20 border border-[#256E3A]/30 text-[#256E3A] text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#256E3A]/10 hover:bg-[#256E3A]/20 border border-[#256E3A]/30 text-[#256E3A] text-xs font-bold transition-colors cursor-pointer shadow-2xs min-h-[36px]"
           >
             {isPlayingAudio ? (
               <VolumeX className="w-3.5 h-3.5 text-rose-600" />
@@ -222,11 +222,11 @@ export const DiagnosisCard: React.FC<DiagnosisCardProps> = ({
       </div>
 
       {/* 6. Action Footer: Save to Diary & Check Weather */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-3.5 border-t border-[#EAEFE2]">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-3.5 border-t border-[#EAEFE2]">
         <button
           type="button"
           onClick={onCheckWeather}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#14281D] text-xs font-bold transition-all shadow-2xs cursor-pointer"
+          className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#14281D] text-xs font-bold transition-all shadow-2xs cursor-pointer min-h-[42px]"
         >
           <CloudSun className="w-4 h-4 text-[#256E3A]" />
           <span>{isTe ? 'స్ప్రే వాతావరణం పరిశీలించు' : 'Check Spray Weather'}</span>
@@ -236,7 +236,7 @@ export const DiagnosisCard: React.FC<DiagnosisCardProps> = ({
           type="button"
           onClick={onSaveToDiary}
           disabled={isSaved}
-          className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-black transition-all shadow-2xs cursor-pointer ${
+          className={`flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-black transition-all shadow-2xs cursor-pointer min-h-[42px] ${
             isSaved
               ? 'bg-[#EAEFE2] text-[#5C6F64] border border-[#D9E2CE]'
               : 'bg-[#256E3A] hover:bg-[#1E582E] text-white'

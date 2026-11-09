@@ -47,23 +47,24 @@ export const CropSidebar: React.FC<CropSidebarProps> = ({
   const isTe = language === 'te';
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-[#F8FAF5] border-r border-[#E2E8D8] w-72 sm:w-80 select-none">
+    <div className="flex flex-col h-full bg-[#F8FAF5] w-full select-none">
       {/* Top Section: Title & New Crop Button */}
       <div className="p-4 border-b border-[#EAEFE2] space-y-3 bg-[#F4F7F0]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <History className="w-4 h-4 text-[#256E3A]" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-[#14281D]">
-              {isTe ? 'పంటల సంభాషణలు' : 'Crop Conversations'}
+            <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#14281D]">
+              {isTe ? 'పంటల చరిత్ర & సంభాషణలు' : 'Crop History & Threads'}
             </h2>
           </div>
           {/* Mobile Close Button */}
           <button
             type="button"
             onClick={onCloseMobile}
-            className="md:hidden p-1 rounded-lg text-[#5C6F64] hover:bg-[#EAEFE2]"
+            aria-label="Close crop history drawer"
+            className="md:hidden p-2 rounded-xl text-[#5C6F64] hover:text-[#14281D] hover:bg-[#EAEFE2] transition-colors cursor-pointer min-w-[38px] min-h-[38px] flex items-center justify-center"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -74,7 +75,7 @@ export const CropSidebar: React.FC<CropSidebarProps> = ({
             onOpenNewCropModal();
             onCloseMobile();
           }}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-extrabold shadow-sm hover:shadow-md transition-all cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-extrabold shadow-sm hover:shadow-md transition-all cursor-pointer min-h-[44px]"
         >
           <Plus className="w-4 h-4" />
           <span>{isTe ? 'కొత్త పంట సంభాషణ' : 'New Crop Conversation'}</span>
@@ -193,18 +194,19 @@ export const CropSidebar: React.FC<CropSidebarProps> = ({
   return (
     <>
       {/* Desktop Sidebar: Static Left Column */}
-      <aside className="hidden md:block shrink-0 sticky top-[65px] h-[calc(100vh-65px)]">
+      <aside className="hidden md:block shrink-0 sticky top-[65px] h-[calc(100vh-65px)] w-72 lg:w-80 border-r border-[#E2E8D8]">
         {sidebarContent}
       </aside>
 
-      {/* Mobile Sidebar: Slide-over overlay */}
+      {/* Mobile Sidebar: Slide-over drawer */}
       {isOpenMobile && (
         <div className="fixed inset-0 z-40 md:hidden flex">
           <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-300"
             onClick={onCloseMobile}
+            aria-hidden="true"
           />
-          <div className="relative flex-1 flex flex-col max-w-xs w-full bg-[#F8FAF5] z-50 shadow-2xl">
+          <div className="relative flex-1 flex flex-col max-w-[85vw] sm:max-w-xs w-full bg-[#F8FAF5] z-50 shadow-2xl h-full border-r border-[#E2E8D8] transform transition-transform duration-300 ease-out">
             {sidebarContent}
           </div>
         </div>

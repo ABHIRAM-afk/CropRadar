@@ -39,6 +39,7 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerMapRef = useRef<Map<string, L.Marker>>(new Map());
   const [activeTab, setActiveTab] = useState<'map' | 'report'>('map');
+  const [mobileViewMode, setMobileViewMode] = useState<'map' | 'list'>('map');
   const [selectedReport, setSelectedReport] = useState<DiseaseReport | null>(null);
 
   const hasFarmCoords = Boolean(
@@ -140,6 +141,8 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
       center: [centerLat, centerLon],
       zoom: initialZoom,
       zoomControl: true,
+      touchZoom: true,
+      dragging: true,
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -317,39 +320,42 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
     >
       <div className="relative w-full max-w-4xl bg-white border border-[#E2E8D8] rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#EAEFE2] bg-[#F8FAF5]">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-[#256E3A]/10 text-[#256E3A] border border-[#256E3A]/20">
-              <Radar className="w-5 h-5" />
+        <div className="flex items-center justify-between px-3.5 sm:px-6 py-3 sm:py-4 border-b border-[#EAEFE2] bg-[#F8FAF5]">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="p-2 sm:p-2.5 rounded-xl bg-[#256E3A]/10 text-[#256E3A] border border-[#256E3A]/20 shrink-0">
+              <Radar className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <h2 className="text-base font-extrabold text-[#14281D]">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-extrabold text-[#14281D] truncate">
                 {isTe ? 'కమ్యూనిటీ డిసీజ్ రాడార్' : 'Community Disease Radar'}
               </h2>
-              <p className="text-xs text-[#5C6F64]">
+              <p className="text-[10px] sm:text-xs text-[#5C6F64] hidden sm:block truncate">
                 {isTe ? 'పరిసర ప్రాంతాల AI తెగుళ్ల నిఘా వ్యవస్థ' : 'AI-assisted community pest & disease intelligence'}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Tab switch */}
-            <div className="flex bg-[#F3F6EF] p-1 rounded-xl border border-[#D9E2CE]">
+            <div className="flex bg-[#F3F6EF] p-0.5 sm:p-1 rounded-xl border border-[#D9E2CE]">
               <button
                 type="button"
-                onClick={() => setActiveTab('map')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                onClick={() => {
+                  setActiveTab('map');
+                  setTimeout(() => mapInstanceRef.current?.invalidateSize(), 150);
+                }}
+                className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   activeTab === 'map'
                     ? 'bg-white text-[#14281D] shadow-xs'
                     : 'text-[#5C6F64] hover:text-[#14281D]'
                 }`}
               >
-                {isTe ? 'రాడార్ మ్యాప్' : 'Radar Map'}
+                {isTe ? 'మ్యాప్' : 'Radar Map'}
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('report')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   activeTab === 'report'
                     ? 'bg-white text-[#14281D] shadow-xs'
                     : 'text-[#5C6F64] hover:text-[#14281D]'
@@ -371,30 +377,87 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
         </div>
 
         {/* Mandatory AI-Assisted Notice Banner */}
-        <div className="px-6 py-2 bg-[#F6FAF1] border-b border-[#DCE8D1] flex items-center justify-between text-xs text-[#4A6052]">
-          <div className="flex items-center gap-2">
+        <div className="px-3.5 sm:px-6 py-2 bg-[#F6FAF1] border-b border-[#DCE8D1] flex items-center justify-between text-[11px] sm:text-xs text-[#4A6052]">
+          <div className="flex items-center gap-1.5 sm:gap-2 truncate">
             <Sparkles className="w-3.5 h-3.5 text-[#256E3A] shrink-0" />
-            <span className="font-semibold text-[#14281D]">
+            <span className="font-semibold text-[#14281D] truncate">
               {isTe
-                ? 'అన్ని నివేదికలు AI-ఆధారిత పరిశీలనలు · క్షేత్రస్థాయిలో ధృవీకరించబడలేదు'
+                ? 'అన్ని నివేదికలు AI-ఆధారిత పరిశీలనలు'
                 : 'All alerts are AI-assisted detections and not field-confirmed.'}
             </span>
           </div>
-          <span className="text-[11px] text-[#5C6F64] hidden sm:inline">
-            {isTe ? 'గోప్యత కోసం లొకేషన్ ~2 కి.మీ సెంట్రాయిడ్' : 'Centroid jittered ~2 km for farm privacy'}
+          <span className="text-[10px] sm:text-[11px] text-[#5C6F64] hidden sm:inline shrink-0">
+            {isTe ? 'గోప్యత కోసం ~2 కి.మీ సెంట్రాయిడ్' : 'Centroid jittered ~2 km for privacy'}
           </span>
         </div>
 
         {/* Body content */}
         {activeTab === 'map' ? (
-          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+            {/* Mobile Segmented Toggle (Map vs List) */}
+            <div className="md:hidden flex items-center justify-center p-2 bg-[#F4F7F0] border-b border-[#EAEFE2] shrink-0">
+              <div className="inline-flex bg-white p-1 rounded-xl border border-[#D9E2CE] shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileViewMode('map');
+                    setTimeout(() => mapInstanceRef.current?.invalidateSize(), 120);
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    mobileViewMode === 'map'
+                      ? 'bg-[#256E3A] text-white shadow-xs'
+                      : 'text-[#4A6052] hover:text-[#14281D]'
+                  }`}
+                >
+                  🗺️ {isTe ? 'మ్యాప్' : 'Map View'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileViewMode('list')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    mobileViewMode === 'list'
+                      ? 'bg-[#256E3A] text-white shadow-xs'
+                      : 'text-[#4A6052] hover:text-[#14281D]'
+                  }`}
+                >
+                  📋 {isTe ? `జాబితా (${reports.length})` : `Outbreaks (${reports.length})`}
+                </button>
+              </div>
+            </div>
+
             {/* Map Area */}
-            <div className="flex-1 relative min-h-[300px]">
+            <div className={`flex-1 relative min-h-[260px] ${mobileViewMode === 'map' ? 'block' : 'hidden md:block'}`}>
               <div ref={mapContainerRef} className="w-full h-full" />
+
+              {/* Floating Bottom Card on Map View when an Outbreak is Selected */}
+              {selectedReport && (
+                <div className="absolute bottom-3 left-3 right-3 z-[1000] p-3 sm:p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#256E3A]/40 shadow-xl space-y-1.5 text-xs text-[#14281D] animate-in fade-in slide-in-from-bottom-2 max-w-lg mx-auto">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="font-extrabold text-[#14281D] text-sm block">{selectedReport.diseaseName}</span>
+                      <span className="text-xs font-semibold text-[#256E3A]">{selectedReport.crop}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedReport(null)}
+                      className="p-1 rounded-lg text-[#5C6F64] hover:text-[#14281D] cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-[#4A6052] leading-relaxed line-clamp-2">{selectedReport.symptoms}</p>
+                  <div className="pt-1.5 border-t border-[#EAEFE2] flex items-center justify-between text-[10px] text-[#5C6F64]">
+                    <span>📍 {selectedReport.generalizedLocation}</span>
+                    <span className="font-bold text-[#256E3A]">
+                      AI Match: {((selectedReport.aiMatchScore || 0.85) * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Outbreaks List & Details Sidebar */}
-            <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-[#EAEFE2] bg-[#F8FAF5] p-4 overflow-y-auto space-y-3">
+            <div className={`w-full md:w-80 border-t md:border-t-0 md:border-l border-[#EAEFE2] bg-[#F8FAF5] p-3.5 sm:p-4 overflow-y-auto space-y-3 ${mobileViewMode === 'list' ? 'block flex-1' : 'hidden md:block'}`}>
               {/* Farmer location status banner */}
               <div className="px-3 py-2 rounded-xl bg-white border border-[#E2E8D8] text-[11px] flex items-center justify-between text-[#4A6052]">
                 <span className="font-bold flex items-center gap-1.5 truncate">
@@ -454,13 +517,19 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
                       type="button"
                       onClick={() => {
                         setSelectedReport(rep);
-                        if (mapInstanceRef.current && Number.isFinite(rep.latitude) && Number.isFinite(rep.longitude)) {
-                          mapInstanceRef.current.flyTo([rep.latitude, rep.longitude], 13);
+                        if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                          setMobileViewMode('map');
                         }
-                        const marker = markerMapRef.current.get(rep.id);
-                        if (marker) {
-                          marker.openPopup();
-                        }
+                        setTimeout(() => {
+                          if (mapInstanceRef.current && Number.isFinite(rep.latitude) && Number.isFinite(rep.longitude)) {
+                            mapInstanceRef.current.invalidateSize();
+                            mapInstanceRef.current.flyTo([rep.latitude, rep.longitude], 13);
+                          }
+                          const marker = markerMapRef.current.get(rep.id);
+                          if (marker) {
+                            marker.openPopup();
+                          }
+                        }, 100);
                       }}
                       className={`w-full text-left p-3 rounded-xl border transition-all shadow-xs cursor-pointer ${
                         isItemHighlighted

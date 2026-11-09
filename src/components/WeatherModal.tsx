@@ -57,22 +57,22 @@ export const WeatherModal: React.FC<WeatherModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label="Detailed spray weather intelligence"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-2.5 sm:p-4 overflow-y-auto"
     >
-      <div className="relative w-full max-w-2xl bg-white border border-[#E2E8D8] rounded-3xl overflow-hidden shadow-2xl my-8 text-[#14281D]">
+      <div className="relative w-full max-w-2xl bg-white border border-[#E2E8D8] rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl my-4 sm:my-8 text-[#14281D] max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#EAEFE2] bg-[#F8FAF5]">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-[#256E3A]/10 text-[#256E3A] border border-[#256E3A]/20">
-              <CloudSun className="w-5 h-5 text-[#256E3A]" />
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-[#EAEFE2] bg-[#F8FAF5] shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="p-2 rounded-xl bg-[#256E3A]/10 text-[#256E3A] border border-[#256E3A]/20 shrink-0">
+              <CloudSun className="w-4 h-4 sm:w-5 sm:h-5 text-[#256E3A]" />
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-extrabold text-[#14281D]">
-                {isTe ? 'వ్యవసాయ వాతావరణ సమాచారం & స్ప్రే విండో' : 'Agro-Weather & Spray Advisory'}
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base lg:text-lg font-extrabold text-[#14281D] truncate">
+                {isTe ? 'వ్యవసాయ వాతావరణం & స్ప్రే విండో' : 'Agro-Weather & Spray Advisory'}
               </h2>
-              <p className="text-xs text-[#5C6F64] flex items-center gap-1.5 mt-0.5">
-                <Compass className="w-3.5 h-3.5 text-[#256E3A]" />
-                <span>{data.location}</span>
+              <p className="text-[10px] sm:text-xs text-[#5C6F64] flex items-center gap-1 sm:gap-1.5 mt-0.5 truncate">
+                <Compass className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#256E3A] shrink-0" />
+                <span className="truncate">{data.location}</span>
               </p>
             </div>
           </div>
@@ -80,16 +80,16 @@ export const WeatherModal: React.FC<WeatherModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Close weather advisory"
-            className="p-1.5 rounded-lg text-[#5C6F64] hover:text-[#14281D] hover:bg-[#EAEFE2] transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-[#5C6F64] hover:text-[#14281D] hover:bg-[#EAEFE2] transition-colors cursor-pointer shrink-0 ml-2"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-5 sm:p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+        <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-5 flex-1 overflow-y-auto">
           {/* Main Spray Suitability Verdict Banner */}
-          <div className={`p-4 rounded-2xl border ${statusBg}`}>
-            <div className="flex items-start gap-3">
+          <div className={`p-3.5 sm:p-4 rounded-2xl border ${statusBg}`}>
+            <div className="flex items-start gap-2.5 sm:gap-3">
               {evaluation.status === 'optimal' ? (
                 <ShieldCheck className="w-5 h-5 text-[#256E3A] shrink-0 mt-0.5" />
               ) : evaluation.status === 'caution' ? (
@@ -97,12 +97,12 @@ export const WeatherModal: React.FC<WeatherModalProps> = ({
               ) : (
                 <AlertOctagon className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               )}
-              <div>
-                <h3 className="text-sm font-extrabold">{statusTitle}</h3>
-                <ul className="mt-1.5 space-y-1 text-xs">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xs sm:text-sm font-extrabold leading-snug">{statusTitle}</h3>
+                <ul className="mt-1.5 space-y-1 text-[11px] sm:text-xs">
                   {(isTe ? evaluation.reasonsTe : evaluation.reasons).map((r, i) => (
                     <li key={i} className="flex items-start gap-1.5">
-                      <span>•</span>
+                      <span className="text-[#256E3A] font-bold">•</span>
                       <span>{r}</span>
                     </li>
                   ))}
@@ -112,7 +112,7 @@ export const WeatherModal: React.FC<WeatherModalProps> = ({
           </div>
 
           {/* Current Micro-Weather Metric Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-center">
             <div className="p-3 bg-[#F8FAF5] border border-[#E2E8D8] rounded-2xl shadow-2xs">
               <div className="flex items-center justify-center gap-1 text-[#5C6F64] text-xs mb-1">
                 <Thermometer className="w-3.5 h-3.5 text-amber-600" />

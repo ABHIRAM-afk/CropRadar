@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   AlertOctagon,
   Sprout,
+  PanelLeft,
 } from 'lucide-react';
 import { Language, WeatherData } from '../types/agricultural';
 
@@ -71,45 +72,46 @@ export const Header: React.FC<HeaderProps> = ({
       : 'Unsafe to Spray';
 
   return (
-    <header className="sticky top-0 z-30 w-full bg-[#F8FAF5]/95 backdrop-blur-md border-b border-[#E2E8D8] px-4 lg:px-8 py-3 transition-colors shadow-xs">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-        {/* Brand Lockup */}
-        <div className="flex items-center gap-2.5 shrink-0">
+    <header className="sticky top-0 z-30 w-full bg-[#F8FAF5]/95 backdrop-blur-md border-b border-[#E2E8D8] px-2.5 sm:px-4 lg:px-8 py-2.5 sm:py-3 transition-colors shadow-xs">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4">
+        {/* Brand Lockup & Sidebar Drawer Toggle */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 min-w-0">
           {onToggleSidebar && (
             <button
               type="button"
               onClick={onToggleSidebar}
-              aria-label="Toggle crop sidebar"
-              className="md:hidden p-1.5 rounded-xl bg-white border border-[#D9E2CE] text-[#14281D] hover:bg-[#F3F6EF] shadow-xs cursor-pointer"
+              title={isTe ? 'పంటల చరిత్ర & సంభాషణలు' : 'Crop History & Conversations'}
+              aria-label="Toggle crop history drawer"
+              className="md:hidden flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-[#D9E2CE] text-[#14281D] hover:bg-[#F3F6EF] shadow-xs cursor-pointer shrink-0"
             >
-              <Sprout className="w-4 h-4 text-[#256E3A]" />
+              <PanelLeft className="w-4 h-4 text-[#256E3A]" />
             </button>
           )}
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-[#256E3A]/15 to-[#65A30D]/20 border border-[#256E3A]/30 text-[#256E3A] shadow-xs">
-            <Radar className="w-5 h-5 text-[#256E3A]" />
-            <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#65A30D]"></span>
+          <div className="relative flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-[#256E3A]/15 to-[#65A30D]/20 border border-[#256E3A]/30 text-[#256E3A] shadow-xs shrink-0">
+            <Radar className="w-4 h-4 sm:w-5 sm:h-5 text-[#256E3A]" />
+            <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2 sm:h-2.5 sm:w-2.5">
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-[#65A30D]"></span>
             </span>
           </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-[#14281D] flex items-center gap-1.5">
-                CropRadar <span className="text-[#256E3A] font-black text-xs sm:text-sm px-1.5 py-0.5 rounded bg-[#256E3A]/10 border border-[#256E3A]/20">AI</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <h1 className="text-sm sm:text-base lg:text-lg font-extrabold tracking-tight text-[#14281D] flex items-center gap-1 truncate">
+                CropRadar <span className="text-[#256E3A] font-black text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.5 rounded bg-[#256E3A]/10 border border-[#256E3A]/20">AI</span>
               </h1>
             </div>
-            <p className="text-[11px] text-[#4A6052] font-medium hidden sm:block">
+            <p className="text-[10px] sm:text-[11px] text-[#4A6052] font-medium hidden sm:block truncate">
               {isTe ? 'పంట ఆరోగ్యం & కమ్యూనిటీ రాడార్' : 'Intelligent Crop Pathology & Community Radar'}
             </p>
           </div>
         </div>
 
-        {/* Center: Compact Spray Weather Summary Pill */}
+        {/* Center: Compact Spray Weather Summary Pill (Tablet & Desktop) */}
         {weatherData && (
           <button
             type="button"
             onClick={onOpenWeather}
             aria-label="View detailed weather and spray window"
-            className={`hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold transition-all hover:shadow-xs cursor-pointer ${sprayBg}`}
+            className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all hover:shadow-xs cursor-pointer ${sprayBg}`}
           >
             <CloudSun className="w-4 h-4" />
             <span className="tabular-nums font-bold">
@@ -121,21 +123,21 @@ export const Header: React.FC<HeaderProps> = ({
               <span>{sprayLabel}</span>
             </span>
             <span className="opacity-50">·</span>
-            <span className="text-[11px] font-medium opacity-90">
+            <span className="text-[11px] font-medium opacity-90 hidden lg:inline">
               {isTe ? 'గాలి:' : 'Wind:'} {weatherData.weather.windSpeedKmH} km/h
             </span>
           </button>
         )}
 
         {/* Right Tools: Radar, Diary, Notifications, Profile, Language */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Mobile Weather Pill */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* Mobile Weather Pill (Visible when screen allows) */}
           {weatherData && (
             <button
               type="button"
               onClick={onOpenWeather}
               aria-label="Weather summary"
-              className={`md:hidden flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold ${sprayBg}`}
+              className={`hidden min-[420px]:flex md:hidden items-center gap-1 px-2 py-1 rounded-full border text-[11px] font-semibold ${sprayBg}`}
             >
               <CloudSun className="w-3.5 h-3.5" />
               <span className="tabular-nums">{weatherData.weather.temperatureC}°C</span>
@@ -148,7 +150,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onOpenRadar}
             title={isTe ? 'కమ్యూనిటీ డిసీజ్ రాడార్ మ్యాప్' : 'Community Disease Radar'}
             aria-label="Community Disease Radar"
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#14281D] text-xs font-bold transition-all shadow-xs cursor-pointer"
+            className="flex items-center gap-1.5 p-2 sm:px-2.5 md:px-3 py-1.5 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#14281D] text-xs font-bold transition-all shadow-xs cursor-pointer min-w-[36px] min-h-[36px] justify-center"
           >
             <Radar className="w-4 h-4 text-[#256E3A]" />
             <span className="hidden sm:inline">{isTe ? 'డిసీజ్ రాడార్' : 'Disease Radar'}</span>
@@ -161,7 +163,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onOpenDiary}
             title={isTe ? 'ఫీల్డ్ డైరీ' : 'Field Diary'}
             aria-label="Field Diary"
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#14281D] text-xs font-bold transition-all shadow-xs cursor-pointer"
+            className="flex items-center gap-1.5 p-2 sm:px-2.5 md:px-3 py-1.5 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#14281D] text-xs font-bold transition-all shadow-xs cursor-pointer min-w-[36px] min-h-[36px] justify-center"
           >
             <BookOpen className="w-4 h-4 text-[#256E3A]" />
             <span className="hidden lg:inline">{isTe ? 'ఫీల్డ్ డైరీ' : 'Field Diary'}</span>
@@ -173,7 +175,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onOpenNotifications}
             title={isTe ? 'పరిసర తెగుళ్ల హెచ్చరికలు' : 'Outbreak Alerts'}
             aria-label="Outbreak notifications"
-            className="relative p-2 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#14281D] transition-all shadow-xs cursor-pointer"
+            className="relative p-2 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#14281D] transition-all shadow-xs cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center"
           >
             <Bell className="w-4 h-4 text-[#14281D]" />
             {unreadAlertsCount > 0 && (
@@ -188,10 +190,11 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={onToggleLanguage}
             aria-label={`Switch language to ${isTe ? 'English' : 'Telugu'}`}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#256E3A]/10 hover:bg-[#256E3A]/20 border border-[#256E3A]/30 text-[#256E3A] text-xs font-bold transition-all shadow-xs cursor-pointer"
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-[#256E3A]/10 hover:bg-[#256E3A]/20 border border-[#256E3A]/30 text-[#256E3A] text-xs font-bold transition-all shadow-xs cursor-pointer min-h-[36px]"
           >
             <Globe className="w-3.5 h-3.5" />
-            <span>{isTe ? 'English' : 'తెలుగు'}</span>
+            <span className="hidden min-[360px]:inline">{isTe ? 'English' : 'తెలుగు'}</span>
+            <span className="min-[360px]:hidden">{isTe ? 'EN' : 'తె'}</span>
           </button>
 
           {/* User / Farm Profile */}
@@ -200,7 +203,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onOpenProfile}
             title={isTe ? 'రైతు ప్రొఫైల్' : 'Farmer Profile'}
             aria-label="Farmer profile"
-            className="p-2 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#14281D] transition-all shadow-xs cursor-pointer"
+            className="p-2 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#14281D] transition-all shadow-xs cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center"
           >
             <User className="w-4 h-4 text-[#14281D]" />
           </button>

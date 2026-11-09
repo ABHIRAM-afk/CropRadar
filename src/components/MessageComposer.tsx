@@ -139,23 +139,23 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   };
 
   return (
-    <div className="sticky bottom-0 z-20 w-full bg-[#F8FAF5]/95 backdrop-blur-md border-t border-[#E2E8D8] px-3 sm:px-6 py-3 transition-colors shadow-xs">
+    <div className="sticky bottom-0 z-20 w-full bg-[#F8FAF5]/95 backdrop-blur-md border-t border-[#E2E8D8] px-1.5 min-[360px]:px-2.5 sm:px-6 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] transition-colors shadow-xs">
       <div className="max-w-4xl mx-auto">
         {/* Attached preview pill */}
         {attachedImage && (
-          <div className="mb-2.5 flex items-center gap-2.5 p-2 pr-3 bg-white border border-[#CBD9BE] rounded-2xl w-fit shadow-xs">
-            <div className="w-11 h-11 rounded-xl overflow-hidden border border-[#D9E2CE] bg-[#F3F6EF] shrink-0">
+          <div className="mb-2.5 flex items-center gap-2.5 p-2 pr-3 bg-white border border-[#CBD9BE] rounded-2xl w-fit max-w-full shadow-xs">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl overflow-hidden border border-[#D9E2CE] bg-[#F3F6EF] shrink-0">
               <img
                 src={attachedImage}
                 alt="Upload preview"
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="text-left text-xs">
-              <p className="font-bold text-[#14281D]">
+            <div className="text-left text-xs min-w-0 flex-1">
+              <p className="font-bold text-[#14281D] truncate">
                 {isTe ? 'పంట చిత్రం సిద్ధంగా ఉంది' : 'Photo optimized for AI analysis'}
               </p>
-              <p className="text-[11px] text-[#5C6F64]">
+              <p className="text-[10px] sm:text-[11px] text-[#5C6F64] truncate">
                 {isTe ? 'పంట తెగులు లేదా రసాయన లేబుల్' : 'Crop pathology or pesticide label'}
               </p>
             </div>
@@ -163,7 +163,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               type="button"
               onClick={() => setAttachedImage(null)}
               aria-label="Remove attached image"
-              className="p-1 text-[#7E9085] hover:text-rose-600 rounded-lg ml-1 cursor-pointer transition-colors"
+              className="p-1.5 text-[#7E9085] hover:text-rose-600 rounded-lg ml-1 cursor-pointer transition-colors shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -173,31 +173,31 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
         {/* Image optimization loader */}
         {isOptimizingImage && (
           <div className="mb-2 flex items-center gap-2 px-3 py-1.5 bg-[#EAEFE2] border border-[#CBD9BE] rounded-xl text-xs text-[#256E3A]">
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#256E3A]" />
-            <span>{isTe ? 'చిత్రాన్ని వేగవంతమైన AI విశ్లేషణ కోసం పరిమాణం తగ్గిస్తున్నాము...' : 'Optimizing and compressing image for fast Gemini analysis...'}</span>
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#256E3A] shrink-0" />
+            <span className="truncate">{isTe ? 'చిత్రాన్ని వేగవంతమైన AI విశ్లేషణ కోసం పరిమాణం తగ్గిస్తున్నాము...' : 'Optimizing and compressing image for fast Gemini analysis...'}</span>
           </div>
         )}
 
         {/* Listening banner */}
         {isListening && (
           <div className="mb-2 flex items-center justify-between px-3.5 py-2 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 text-xs animate-pulse">
-            <div className="flex items-center gap-2 font-bold">
-              <Mic className="w-4 h-4 text-emerald-600" />
-              <span>
-                {isTe ? 'వింటున్నాము... మాట్లాడండి (తెలుగు)' : 'Listening... Speak in Telugu or English'}
+            <div className="flex items-center gap-2 font-bold truncate">
+              <Mic className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="truncate">
+                {isTe ? 'వింటున్నాము... మాట్లాడండి' : 'Listening... Speak in Telugu or English'}
               </span>
             </div>
             <button
               type="button"
               onClick={stopVoiceInput}
-              className="text-xs underline font-bold text-emerald-800 cursor-pointer"
+              className="text-xs underline font-bold text-emerald-800 cursor-pointer shrink-0 ml-2"
             >
               {isTe ? 'ఆపండి' : 'Done'}
             </button>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex items-center gap-1.5 sm:gap-2">
+        <form onSubmit={handleSubmit} className="flex items-center gap-1 sm:gap-2">
           {/* 1. Attachment Button */}
           <input
             ref={fileInputRef}
@@ -215,9 +215,9 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             disabled={disabled || isOptimizingImage}
             title={isTe ? 'ఫోటో లేదా డాక్యుమెంట్ జోడించండి' : 'Attach crop photo or label'}
             aria-label="Attach file or photo"
-            className="flex items-center justify-center w-10 h-10 rounded-2xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#4A6052] hover:text-[#256E3A] transition-colors disabled:opacity-50 cursor-pointer shrink-0 shadow-xs"
+            className="flex items-center justify-center w-8 h-8 min-[360px]:w-9 min-[360px]:h-9 sm:w-10 sm:h-10 rounded-2xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#4A6052] hover:text-[#256E3A] transition-colors disabled:opacity-50 cursor-pointer shrink-0 shadow-xs"
           >
-            <Paperclip className="w-4 h-4" />
+            <Paperclip className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
 
           {/* 2. Camera Button */}
@@ -230,13 +230,13 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             disabled={disabled || isOptimizingImage}
             title={isTe ? 'కెమెరాతో ఫోటో తీయండి' : 'Take a photo with camera'}
             aria-label="Open camera"
-            className="flex items-center justify-center w-10 h-10 rounded-2xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#4A6052] hover:text-[#256E3A] transition-colors disabled:opacity-50 cursor-pointer shrink-0 shadow-xs"
+            className="flex items-center justify-center w-8 h-8 min-[360px]:w-9 min-[360px]:h-9 sm:w-10 sm:h-10 rounded-2xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#4A6052] hover:text-[#256E3A] transition-colors disabled:opacity-50 cursor-pointer shrink-0 shadow-xs"
           >
-            <Camera className="w-4 h-4" />
+            <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
 
           {/* 3. Text Input (Message Composer) */}
-          <div className="flex-1 relative flex items-center">
+          <div className="flex-1 relative flex items-center min-w-0">
             <textarea
               rows={1}
               value={inputText}
@@ -245,10 +245,10 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               disabled={disabled}
               placeholder={
                 isTe
-                  ? 'మీ పంట సమస్యను అడగండి లేదా ఫోటో పంపండి...'
-                  : 'Ask about your crop, spray timing, or upload a photo...'
+                  ? 'సందేహం లేదా ఫోటో...'
+                  : 'Ask question or upload leaf...'
               }
-              className="w-full resize-none py-2.5 pl-3.5 pr-3 bg-white text-[#14281D] placeholder:text-[#7E9085] rounded-2xl border border-[#D9E2CE] focus:border-[#256E3A] focus:ring-1 focus:ring-[#256E3A] focus:outline-none text-xs sm:text-sm max-h-24 transition-colors font-sans shadow-xs"
+              className="w-full resize-none py-1.5 sm:py-2.5 pl-2.5 sm:pl-3 pr-2 sm:pr-3 bg-white text-[#14281D] placeholder:text-[#7E9085] rounded-2xl border border-[#D9E2CE] focus:border-[#256E3A] focus:ring-1 focus:ring-[#256E3A] focus:outline-none text-base sm:text-sm max-h-24 transition-colors font-sans shadow-xs leading-normal"
             />
           </div>
 
@@ -263,13 +263,13 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                 : isTe ? 'మైక్రోఫోన్ ద్వారా మాట్లాడండి' : 'Speak in Telugu or English'
             }
             aria-label="Voice input"
-            className={`flex items-center justify-center w-10 h-10 rounded-2xl border transition-all cursor-pointer shrink-0 shadow-xs ${
+            className={`flex items-center justify-center w-8 h-8 min-[360px]:w-9 min-[360px]:h-9 sm:w-10 sm:h-10 rounded-2xl border transition-all cursor-pointer shrink-0 shadow-xs ${
               isListening
                 ? 'bg-rose-100 border-rose-400 text-rose-700 animate-pulse'
                 : 'bg-white hover:bg-[#F3F6EF] border-[#D9E2CE] text-[#4A6052] hover:text-[#256E3A]'
             } disabled:opacity-50`}
           >
-            {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            {isListening ? <MicOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
           </button>
 
           {/* 5. Send Button */}
@@ -277,9 +277,9 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             type="submit"
             disabled={(!inputText.trim() && !attachedImage) || disabled || isOptimizingImage}
             aria-label="Send message"
-            className="flex items-center justify-center w-10 h-10 rounded-2xl bg-[#256E3A] hover:bg-[#1E582E] text-white font-bold shadow-sm transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0"
+            className="flex items-center justify-center w-8 h-8 min-[360px]:w-9 min-[360px]:h-9 sm:w-10 sm:h-10 rounded-2xl bg-[#256E3A] hover:bg-[#1E582E] text-white font-bold shadow-sm transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
         </form>
       </div>

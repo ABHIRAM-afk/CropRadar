@@ -18,12 +18,31 @@
     color: #14281D;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
+    /* Prevent unwanted pull-to-refresh reload interfering with gestures */
+    overscroll-behavior-y: contain;
+    /* Mobile safe area support */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   /* When Telugu language is active or for Telugu elements */
   [lang="te"], .font-telugu {
     font-family: var(--font-telugu), var(--font-sans);
   }
+}
+
+/* Touch-action and smooth momentum scrolling on mobile */
+.touch-pan-y {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Safe area padding utilities */
+.safe-pb {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+.safe-mb {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Custom scrollbar for conversational interface in light theme */

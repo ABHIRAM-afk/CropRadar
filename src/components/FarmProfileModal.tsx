@@ -194,20 +194,20 @@ export const FarmProfileModal: React.FC<FarmProfileModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label="Farmer profile and farm settings"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
     >
-      <div className="relative w-full max-w-lg bg-white border border-[#E2E8D8] rounded-3xl overflow-hidden shadow-2xl my-6">
+      <div className="relative w-full max-w-lg bg-white border border-[#E2E8D8] rounded-3xl overflow-hidden shadow-2xl my-auto sm:my-6 max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-[#EAEFE2] bg-[#F8FAF5]">
+        <div className="flex items-center justify-between px-4 py-3.5 sm:px-6 sm:py-5 border-b border-[#EAEFE2] bg-[#F8FAF5] shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-2xl bg-[#256E3A]/10 text-[#256E3A] border border-[#256E3A]/20">
               <User className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-extrabold text-[#14281D]">
+              <h2 className="text-sm sm:text-base font-extrabold text-[#14281D]">
                 {isTe ? 'రైతు ప్రొఫైల్ & లొకేషన్ వివరాలు' : 'Farmer Profile & Location'}
               </h2>
-              <p className="text-xs text-[#5C6F64]">
+              <p className="text-[11px] sm:text-xs text-[#5C6F64]">
                 {isTe ? 'సమీప కమ్యూనిటీ తెగుళ్ల హెచ్చరికల కోసం' : 'Opt-in for nearby community outbreak alerts'}
               </p>
             </div>
@@ -222,9 +222,9 @@ export const FarmProfileModal: React.FC<FarmProfileModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs text-[#14281D]">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 text-xs text-[#14281D] overflow-y-auto flex-1">
           {/* 1. Account / Supabase Auth Status */}
-          <div className="p-3.5 rounded-2xl bg-[#F6FAF1] border border-[#DCE8D1] flex items-center justify-between">
+          <div className="p-3.5 rounded-2xl bg-[#F6FAF1] border border-[#DCE8D1] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#4A6052] block">
                 {isTe ? 'ఖాతా స్థితి' : 'Account Status'}
@@ -241,7 +241,7 @@ export const FarmProfileModal: React.FC<FarmProfileModalProps> = ({
                   type="button"
                   onClick={handleGoogleSignIn}
                   disabled={isSigningIn}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#CBD9BE] hover:bg-[#F3F6EF] text-[#14281D] font-bold text-xs shadow-xs cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#CBD9BE] hover:bg-[#F3F6EF] text-[#14281D] font-bold text-xs shadow-xs cursor-pointer min-h-[36px]"
                 >
                   <LogIn className="w-3.5 h-3.5 text-[#256E3A]" />
                   <span>{isSigningIn ? (isTe ? 'వేచి ఉండండి...' : 'Starting…') : isTe ? 'గూగుల్ లింక్' : 'Link Google'}</span>
@@ -250,7 +250,7 @@ export const FarmProfileModal: React.FC<FarmProfileModalProps> = ({
                 <button
                   type="button"
                   onClick={handleSignOutClick}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 font-bold text-xs shadow-xs cursor-pointer"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 font-bold text-xs shadow-xs cursor-pointer min-h-[36px]"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   <span>{isTe ? 'లాగౌట్' : 'Sign Out'}</span>
@@ -273,7 +273,7 @@ export const FarmProfileModal: React.FC<FarmProfileModalProps> = ({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3.5 py-2 text-xs bg-white border border-[#D9E2CE] rounded-xl text-[#14281D] focus:ring-2 focus:ring-[#256E3A] focus:outline-none"
+              className="w-full px-3.5 py-2 text-base sm:text-xs bg-white border border-[#D9E2CE] rounded-xl text-[#14281D] focus:ring-2 focus:ring-[#256E3A] focus:outline-none"
               placeholder={isTe ? 'మీ పేరు రాయండి' : 'Enter your name'}
             />
           </div>
@@ -286,7 +286,7 @@ export const FarmProfileModal: React.FC<FarmProfileModalProps> = ({
             <select
               value={primaryCrop}
               onChange={(e) => setPrimaryCrop(e.target.value)}
-              className="w-full px-3.5 py-2 text-xs bg-white border border-[#D9E2CE] rounded-xl text-[#14281D] focus:ring-2 focus:ring-[#256E3A] focus:outline-none"
+              className="w-full px-3.5 py-2 text-base sm:text-xs bg-white border border-[#D9E2CE] rounded-xl text-[#14281D] focus:ring-2 focus:ring-[#256E3A] focus:outline-none"
             >
               <option value="Paddy / Rice (వరి)">Paddy / Rice (వరి)</option>
               <option value="Tomato (టమోటా)">Tomato (టమోటా)</option>
@@ -300,10 +300,10 @@ export const FarmProfileModal: React.FC<FarmProfileModalProps> = ({
           </div>
 
           {/* 4. Robust GPS & Location Selection */}
-          <div className="space-y-3 p-4 rounded-2xl bg-[#FBFDF9] border border-[#EAEFE2]">
-            <div className="flex items-center justify-between">
+          <div className="space-y-3 p-3.5 sm:p-4 rounded-2xl bg-[#FBFDF9] border border-[#EAEFE2]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
               <label className="text-xs font-bold text-[#14281D] flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-[#256E3A]" />
+                <MapPin className="w-3.5 h-3.5 text-[#256E3A] shrink-0" />
                 <span>{isTe ? 'పొలం లొకేషన్ & అలర్ట్ పరిధి' : 'Farm Location (Actual / Sector)'}</span>
               </label>
 
@@ -312,7 +312,7 @@ export const FarmProfileModal: React.FC<FarmProfileModalProps> = ({
                 type="button"
                 onClick={handleUseCurrentLocation}
                 disabled={isDetectingGps}
-                className="flex items-center gap-1 text-[11px] font-bold text-[#256E3A] hover:bg-[#256E3A]/10 px-2 py-1 rounded-lg border border-[#256E3A]/20 cursor-pointer disabled:opacity-60"
+                className="flex items-center gap-1 text-[11px] font-bold text-[#256E3A] hover:bg-[#256E3A]/10 px-2.5 py-1.5 rounded-lg border border-[#256E3A]/20 cursor-pointer disabled:opacity-60 shrink-0 self-start sm:self-auto min-h-[36px]"
               >
                 {isDetectingGps ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-[#256E3A]" />
@@ -360,7 +360,7 @@ export const FarmProfileModal: React.FC<FarmProfileModalProps> = ({
                   setHasExplicitLocation(true);
                   if (locationSource === 'none') setLocationSource('sector_centroid');
                 }}
-                className="w-full px-3 py-1.5 text-xs bg-white border border-[#D9E2CE] rounded-xl text-[#14281D] focus:ring-2 focus:ring-[#256E3A] focus:outline-none"
+                className="w-full px-3 py-2 text-base sm:text-xs bg-white border border-[#D9E2CE] rounded-xl text-[#14281D] focus:ring-2 focus:ring-[#256E3A] focus:outline-none"
                 placeholder={isTe ? 'ఉదా: ప్రత్తిపాడు, గుంటూరు జిల్లా' : 'e.g. Prathipadu, Guntur District'}
               />
             </div>
@@ -376,7 +376,7 @@ export const FarmProfileModal: React.FC<FarmProfileModalProps> = ({
                   if (zone) handleSelectZone(zone);
                 }}
                 value={predefinedZones.some((z) => z.name === farmLocation) ? farmLocation : ''}
-                className="w-full px-3 py-1.5 text-xs bg-white border border-[#D9E2CE] rounded-xl text-[#14281D] focus:ring-2 focus:ring-[#256E3A] focus:outline-none"
+                className="w-full px-3 py-2 text-base sm:text-xs bg-white border border-[#D9E2CE] rounded-xl text-[#14281D] focus:ring-2 focus:ring-[#256E3A] focus:outline-none"
               >
                 <option value="">{isTe ? '-- సెక్టార్ ఎంపిక చేసుకోండి --' : '-- Choose a nearby agricultural zone --'}</option>
                 {predefinedZones.map((z, idx) => (
@@ -401,7 +401,7 @@ export const FarmProfileModal: React.FC<FarmProfileModalProps> = ({
                     setLatitude(parseFloat(e.target.value) || 0);
                     setHasExplicitLocation(true);
                   }}
-                  className="w-full px-2.5 py-1 text-xs bg-white border border-[#D9E2CE] rounded-lg text-[#14281D]"
+                  className="w-full px-2.5 py-1.5 text-base sm:text-xs bg-white border border-[#D9E2CE] rounded-lg text-[#14281D]"
                 />
               </div>
               <div>
@@ -416,7 +416,7 @@ export const FarmProfileModal: React.FC<FarmProfileModalProps> = ({
                     setLongitude(parseFloat(e.target.value) || 0);
                     setHasExplicitLocation(true);
                   }}
-                  className="w-full px-2.5 py-1 text-xs bg-white border border-[#D9E2CE] rounded-lg text-[#14281D]"
+                  className="w-full px-2.5 py-1.5 text-base sm:text-xs bg-white border border-[#D9E2CE] rounded-lg text-[#14281D]"
                 />
               </div>
             </div>
@@ -433,17 +433,17 @@ export const FarmProfileModal: React.FC<FarmProfileModalProps> = ({
           </div>
 
           {/* Submit Button */}
-          <div className="pt-2 flex items-center justify-end gap-2.5">
+          <div className="pt-3 border-t border-[#EAEFE2] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-2.5 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-white border border-[#D9E2CE] text-xs font-bold text-[#14281D] hover:bg-[#F3F6EF] cursor-pointer"
+              className="px-4 py-2.5 min-h-[40px] rounded-xl bg-white border border-[#D9E2CE] text-xs font-bold text-[#14281D] hover:bg-[#F3F6EF] cursor-pointer text-center"
             >
               {isTe ? 'రద్దు' : 'Cancel'}
             </button>
             <button
               type="submit"
-              className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-extrabold shadow-sm hover:shadow-md cursor-pointer transition-all"
+              className="flex items-center justify-center gap-1.5 px-5 py-2.5 min-h-[40px] rounded-xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-extrabold shadow-sm hover:shadow-md cursor-pointer transition-all"
             >
               {savedSuccess ? (
                 <>

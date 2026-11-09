@@ -82,13 +82,13 @@ export const PesticideCard: React.FC<PesticideCardProps> = ({
   };
 
   return (
-    <div className="w-full bg-[#FFFFFF] border border-[#E2E8D8] rounded-2xl p-4 sm:p-6 text-[#14281D] shadow-sm space-y-4">
+    <div className="w-full bg-[#FFFFFF] border border-[#E2E8D8] rounded-2xl p-3.5 sm:p-6 text-[#14281D] shadow-sm space-y-4">
       {/* 1. Header: Product Name, Category & Speech Output */}
-      <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-[#EAEFE2]">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#256E3A] mb-1">
-            <FileText className="w-3.5 h-3.5" />
-            <span>{isTe ? 'రసాయన లేబుల్ స్కాన్' : 'Pesticide Label Analysis'}</span>
+      <div className="flex flex-wrap items-start justify-between gap-2.5 pb-3 border-b border-[#EAEFE2]">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#256E3A] mb-1">
+            <FileText className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{isTe ? 'రసాయన లేబుల్ స్కాన్' : 'Pesticide Label Analysis'}</span>
           </div>
           <h2 className="text-base sm:text-lg font-extrabold text-[#14281D]">
             {isTe ? data.diagnosisOrProduct.titleTe : data.diagnosisOrProduct.titleEn}
@@ -98,7 +98,7 @@ export const PesticideCard: React.FC<PesticideCardProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* FRAC / IRAC MOA Tag */}
           <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-[#256E3A]/10 text-[#256E3A] border border-[#256E3A]/30">
             {moaCode}
@@ -110,7 +110,7 @@ export const PesticideCard: React.FC<PesticideCardProps> = ({
             onClick={speakSummary}
             title={isTe ? 'సారాంశం వినండి' : 'Listen to audio explanation'}
             aria-label="Listen to audio explanation"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#256E3A]/10 hover:bg-[#256E3A]/20 border border-[#256E3A]/30 text-[#256E3A] text-xs font-bold transition-colors cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#256E3A]/10 hover:bg-[#256E3A]/20 border border-[#256E3A]/30 text-[#256E3A] text-xs font-bold transition-colors cursor-pointer shadow-xs min-h-[36px]"
           >
             {isPlayingAudio ? (
               <VolumeX className="w-3.5 h-3.5 text-rose-600" />
@@ -227,11 +227,11 @@ export const PesticideCard: React.FC<PesticideCardProps> = ({
       </div>
 
       {/* 5. Action Footer */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#EAEFE2]">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-3 border-t border-[#EAEFE2]">
         <button
           type="button"
           onClick={onCheckWeather}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#14281D] text-xs font-bold transition-all shadow-xs cursor-pointer"
+          className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#14281D] text-xs font-bold transition-all shadow-xs cursor-pointer min-h-[42px]"
         >
           <CloudSun className="w-4 h-4 text-[#256E3A]" />
           <span>{isTe ? 'స్ప్రే వాతావరణం పరిశీలించు' : 'Check Spray Weather'}</span>
@@ -241,7 +241,7 @@ export const PesticideCard: React.FC<PesticideCardProps> = ({
           type="button"
           onClick={handleSave}
           disabled={isSaved}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
+          className={`flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer min-h-[42px] ${
             isSaved
               ? 'bg-[#EAEFE2] text-[#5C6F64] border border-[#D9E2CE]'
               : 'bg-[#256E3A] hover:bg-[#1E582E] text-white'

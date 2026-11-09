@@ -119,14 +119,14 @@ export const CameraModal: React.FC<CameraModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label="Camera capture"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto"
     >
-      <div className="relative w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+      <div className="relative w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-950/60">
-          <div className="flex items-center gap-2 text-white">
-            <Camera className="w-5 h-5 text-emerald-400" />
-            <h2 className="text-sm font-semibold">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-slate-800 bg-slate-950/60 shrink-0">
+          <div className="flex items-center gap-2 text-white min-w-0">
+            <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 shrink-0" />
+            <h2 className="text-xs sm:text-sm font-semibold truncate">
               {isTe ? 'పంట లేదా మందు డబ్బా ఫోటో తీయండి' : 'Capture Crop or Pesticide Label'}
             </h2>
           </div>
@@ -134,7 +134,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
             type="button"
             onClick={handleClose}
             aria-label="Close camera"
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0 ml-2"
           >
             <X className="w-5 h-5" />
           </button>
@@ -207,14 +207,14 @@ export const CameraModal: React.FC<CameraModalProps> = ({
         </div>
 
         {/* Controls Footer */}
-        <div className="flex items-center justify-between px-5 py-4 border-t border-slate-800 bg-slate-950/80">
+        <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 border-t border-slate-800 bg-slate-950/80 gap-2">
           {!capturedImage ? (
             <>
               <button
                 type="button"
                 onClick={toggleCameraFacing}
                 aria-label="Switch camera"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium cursor-pointer"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium cursor-pointer min-h-[40px] shrink-0"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{isTe ? 'కెమెరా మార్చండి' : 'Flip'}</span>
@@ -225,7 +225,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                 onClick={handleSnap}
                 disabled={!!errorMsg}
                 aria-label="Take photograph"
-                className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg transition-transform active:scale-95 disabled:opacity-50 cursor-pointer"
+                className="flex items-center justify-center gap-2 px-5 sm:px-6 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg transition-transform active:scale-95 disabled:opacity-50 cursor-pointer min-h-[42px]"
               >
                 <Camera className="w-4 h-4 text-slate-950" />
                 <span>{isTe ? 'ఫోటో తీయండి' : 'Capture Photo'}</span>
@@ -234,7 +234,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-3 py-2 text-xs text-slate-400 hover:text-slate-200 cursor-pointer"
+                className="px-3 py-2 text-xs text-slate-400 hover:text-slate-200 cursor-pointer min-h-[40px] flex items-center shrink-0"
               >
                 {isTe ? 'రద్దు' : 'Cancel'}
               </button>
@@ -245,7 +245,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                 type="button"
                 onClick={handleRetake}
                 aria-label="Retake photo"
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium cursor-pointer"
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium cursor-pointer min-h-[40px]"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>{isTe ? 'మళ్ళీ తీయండి' : 'Retake'}</span>
@@ -255,7 +255,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                 type="button"
                 onClick={handleConfirm}
                 aria-label="Confirm photo for AI diagnosis"
-                className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg cursor-pointer"
+                className="flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg cursor-pointer min-h-[42px]"
               >
                 <Check className="w-4 h-4" />
                 <span>{isTe ? 'విశ్లేషణకు పంపండి' : 'Analyze Image'}</span>

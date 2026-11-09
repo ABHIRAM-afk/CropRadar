@@ -86,7 +86,7 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
       <div
         role="region"
         aria-label="Community Outbreak Notice Withheld"
-        className="w-full rounded-3xl bg-slate-50 border border-slate-200 p-4 sm:p-5 text-xs space-y-2.5 shadow-xs text-slate-800"
+        className="w-full rounded-3xl bg-slate-50 border border-slate-200 p-3.5 sm:p-5 text-xs space-y-2.5 shadow-xs text-slate-800"
       >
         <div className="flex items-center justify-between gap-2">
           <span className="font-extrabold uppercase tracking-wide text-[11px] text-slate-700 flex items-center gap-1.5">
@@ -118,7 +118,7 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
       <div
         role="region"
         aria-label="Location Unconfigured Notice"
-        className="w-full rounded-3xl bg-[#F8FAF5] border border-[#CBD9BE] p-4 sm:p-5 text-xs space-y-2.5 shadow-xs text-[#374B3F]"
+        className="w-full rounded-3xl bg-[#F8FAF5] border border-[#CBD9BE] p-3.5 sm:p-5 text-xs space-y-2.5 shadow-xs text-[#374B3F]"
       >
         <div className="flex items-center justify-between gap-2">
           <span className="font-extrabold uppercase tracking-wide text-[11px] text-[#256E3A] flex items-center gap-1.5">
@@ -144,7 +144,7 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
       <div
         role="alert"
         aria-label="Outbreak delivery error"
-        className="w-full rounded-3xl bg-rose-50 border border-rose-300 p-4 sm:p-5 text-xs space-y-2.5 shadow-xs text-rose-950"
+        className="w-full rounded-3xl bg-rose-50 border border-rose-300 p-3.5 sm:p-5 text-xs space-y-2.5 shadow-xs text-rose-950"
       >
         <div className="flex items-center justify-between gap-2">
           <span className="font-extrabold uppercase tracking-wide text-[11px] text-rose-900 flex items-center gap-1.5">
@@ -170,7 +170,7 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
       <div
         role="region"
         aria-label="Outbreak Saved To Radar"
-        className="w-full rounded-3xl bg-[#F6FAF1] border border-[#CBD9BE] p-4 sm:p-5 shadow-xs text-xs space-y-3"
+        className="w-full rounded-3xl bg-[#F6FAF1] border border-[#CBD9BE] p-3.5 sm:p-5 shadow-xs text-xs space-y-3"
       >
         <div className="flex items-center justify-between gap-2">
           <span className="font-extrabold text-[#14281D] uppercase tracking-wide text-[11px] flex items-center gap-1.5">
@@ -197,11 +197,11 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
         </div>
 
         {outbreakAlert.outbreakId && (
-          <div className="pt-2 flex justify-end">
+          <div className="pt-2 flex flex-col sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={() => onOpenRadar(outbreakAlert.outbreakId)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              className="w-full sm:w-auto min-h-[38px] inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
             >
               <Radar className="w-3.5 h-3.5" />
               <span>{isTe ? 'మ్యాప్‌లో రాడార్ చూడండి →' : 'View on Disease Radar Map →'}</span>
@@ -230,7 +230,7 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
       <div
         role="region"
         aria-label="Community Outbreak Alert Dispatched"
-        className="w-full rounded-3xl bg-amber-50/90 border border-amber-300 p-4 sm:p-5 shadow-xs text-xs space-y-3"
+        className="w-full rounded-3xl bg-amber-50/90 border border-amber-300 p-3.5 sm:p-5 shadow-xs text-xs space-y-3"
       >
         <div className="flex items-center justify-between gap-2">
           <span className="font-extrabold text-amber-950 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
@@ -282,11 +282,11 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
         )}
 
         {outbreakAlert.outbreakId && (
-          <div className="pt-2 flex justify-end">
+          <div className="pt-2 flex flex-col sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={() => onOpenRadar(outbreakAlert.outbreakId)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              className="w-full sm:w-auto min-h-[38px] inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
             >
               <Radar className="w-3.5 h-3.5" />
               <span>{isTe ? 'మ్యాప్‌లో రాడార్ చూడండి →' : 'View on Disease Radar Map →'}</span>
@@ -302,11 +302,11 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
     <div
       role="region"
       aria-label="Confirm Community Outbreak Alert"
-      className="w-full rounded-3xl bg-[#FFFDF5] border-2 border-amber-400 p-5 sm:p-6 shadow-md text-xs space-y-4 my-2"
+      className="w-full rounded-3xl bg-[#FFFDF5] border-2 border-amber-400 p-3.5 sm:p-6 shadow-md text-xs space-y-3.5 sm:space-y-4 my-2"
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-2.5">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-amber-100 border border-amber-300 text-amber-900">
+          <div className="p-2 rounded-xl bg-amber-100 border border-amber-300 text-amber-900 shrink-0">
             <ShieldAlert className="w-5 h-5 text-amber-700" />
           </div>
           <div>
@@ -319,7 +319,7 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
           </div>
         </div>
 
-        <span className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-full bg-white border border-amber-300 text-amber-900">
+        <span className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-full bg-white border border-amber-300 text-amber-900 shrink-0">
           {isTe ? `AI స్కోర్: ${matchPercent}%` : `AI Match: ${matchPercent}%`}
         </span>
       </div>
@@ -331,13 +331,13 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
       </p>
 
       {onConfirmSend && (
-        <div className="pt-2 flex flex-wrap items-center justify-end gap-2.5 border-t border-amber-200">
+        <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-2.5 border-t border-amber-200">
           {onDismiss && (
             <button
               type="button"
               onClick={onDismiss}
               disabled={isSending}
-              className="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 border border-[#D9E2CE] text-xs font-bold text-[#4A6052] transition-colors cursor-pointer"
+              className="w-full sm:w-auto min-h-[42px] px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-[#D9E2CE] text-xs font-bold text-[#4A6052] transition-colors cursor-pointer text-center"
             >
               {isTe ? 'రద్దు చేయండి' : 'Dismiss'}
             </button>
@@ -347,7 +347,7 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
             type="button"
             onClick={handleConfirm}
             disabled={isSending}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-extrabold shadow-sm hover:shadow-md transition-all cursor-pointer disabled:opacity-60"
+            className="w-full sm:w-auto min-h-[42px] flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs font-extrabold shadow-sm hover:shadow-md transition-all cursor-pointer disabled:opacity-60"
           >
             {isSending ? (
               <>

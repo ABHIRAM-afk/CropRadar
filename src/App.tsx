@@ -15,6 +15,7 @@ import {
   Calendar,
   Radar,
   Plus,
+  ChevronDown,
 } from 'lucide-react';
 
 import {
@@ -1397,7 +1398,7 @@ export default function App() {
         />
 
         {/* Center / Main Conversational Workspace */}
-        <main className="flex-1 flex flex-col p-3 sm:p-5 lg:p-6 space-y-4 max-w-4xl w-full mx-auto min-w-0">
+        <main className="flex-1 flex flex-col p-2.5 sm:p-5 lg:p-6 space-y-3 sm:space-y-4 max-w-4xl w-full mx-auto min-w-0">
           {/* GPS Location Warning Banner if Location is not configured */}
           {gpsStatus === 'failed' && !gpsBannerDismissed && !profile.hasExplicitLocation && (
             <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center justify-between gap-3 shadow-xs">
@@ -1430,8 +1431,8 @@ export default function App() {
 
           {/* Active Crop Context Strip */}
           {activeCycle && (
-            <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-[#E2E8D8] text-xs shadow-2xs">
-              <div className="flex items-center gap-2 truncate">
+            <div className="flex items-center justify-between px-3 py-2 sm:px-3.5 sm:py-2 rounded-xl bg-white border border-[#E2E8D8] text-xs shadow-2xs gap-2">
+              <div className="flex items-center gap-2 truncate min-w-0">
                 <Sprout className="w-3.5 h-3.5 text-[#256E3A] shrink-0" />
                 <span className="font-extrabold text-[#14281D] truncate">
                   {isTe ? (activeCycle.cropNameTe || activeCycle.cropNameEn) : activeCycle.cropNameEn}
@@ -1441,9 +1442,20 @@ export default function App() {
                   {activeCycle.stage || 'Vegetative Growth'}
                 </span>
               </div>
-              <span className="text-[10px] font-bold text-[#256E3A] bg-[#256E3A]/10 px-2 py-0.5 rounded-full shrink-0">
-                {isTe ? 'ప్రత్యేక సంభాషణ' : 'Dedicated Thread'}
-              </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsMobileSidebarOpen(true)}
+                  className="md:hidden flex items-center gap-1 text-[11px] font-bold text-[#256E3A] bg-[#256E3A]/10 hover:bg-[#256E3A]/20 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                  aria-label="Switch crop conversation"
+                >
+                  <span>{isTe ? 'మార్చు' : 'Switch'}</span>
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+                <span className="hidden md:inline-flex text-[10px] font-bold text-[#256E3A] bg-[#256E3A]/10 px-2 py-0.5 rounded-full shrink-0">
+                  {isTe ? 'ప్రత్యేక సంభాషణ' : 'Dedicated Thread'}
+                </span>
+              </div>
             </div>
           )}
 
@@ -1503,7 +1515,7 @@ export default function App() {
                   className={`flex flex-col ${isFarmer ? 'items-end' : 'items-start'} space-y-2`}
                 >
                   <div
-                    className={`max-w-[90%] sm:max-w-[82%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed ${
+                    className={`max-w-[92%] sm:max-w-[82%] rounded-2xl p-3 sm:p-4 text-xs sm:text-sm leading-relaxed ${
                       isFarmer
                         ? 'bg-[#256E3A] text-white rounded-tr-xs shadow-xs'
                         : 'bg-white border border-[#E2E8D8] text-[#14281D] rounded-tl-xs shadow-xs'
@@ -1530,7 +1542,7 @@ export default function App() {
 
                   {/* Case A: Prominent Crop Mismatch Prompt (Displayed before crop-specific advice or alert) */}
                   {msg.diagnosisData?.cropMismatch?.isMismatch ? (
-                    <div className="w-full max-w-[92%] sm:max-w-[85%]">
+                    <div className="w-full max-w-full sm:max-w-[95%] lg:max-w-[88%]">
                       <CropMismatchCard
                         mismatchInfo={msg.diagnosisData.cropMismatch}
                         activeCycleName={activeCycle?.cropNameEn || profile.primaryCrop || 'Current Crop'}
@@ -1545,7 +1557,7 @@ export default function App() {
                     <>
                       {/* Case B: Render Pathology Diagnosis Card */}
                       {msg.diagnosisData && msg.diagnosisData.analysisType === 'crop_diagnosis' && (
-                        <div className="w-full max-w-[92%] sm:max-w-[85%]">
+                        <div className="w-full max-w-full sm:max-w-[95%] lg:max-w-[88%]">
                           <DiagnosisCard
                             data={msg.diagnosisData}
                             language={language}
@@ -1557,7 +1569,7 @@ export default function App() {
 
                       {/* Case C: Render Pesticide Card */}
                       {msg.diagnosisData && msg.diagnosisData.analysisType === 'pesticide_label' && (
-                        <div className="w-full max-w-[92%] sm:max-w-[85%]">
+                        <div className="w-full max-w-full sm:max-w-[95%] lg:max-w-[88%]">
                           <PesticideCard
                             data={msg.diagnosisData}
                             language={language}
@@ -1577,7 +1589,7 @@ export default function App() {
 
                       {/* Case D: Render Outbreak Alert Confirmation Card (Explicit confirmation before notifying nearby farms) */}
                       {msg.outbreakAlert && (
-                        <div className="w-full max-w-[92%] sm:max-w-[85%]">
+                        <div className="w-full max-w-full sm:max-w-[95%] lg:max-w-[88%]">
                           <OutbreakAlertConfirmationCard
                             outbreakAlert={msg.outbreakAlert}
                             language={language}
@@ -1714,6 +1726,16 @@ export default function App() {
         onMarkAsRead={(id) => {
           setNotificationsList((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
           authFetch(`/api/notifications/${id}/read`, { method: 'PATCH' }).catch((e) => console.warn(e));
+        }}
+        onDeleteAllSuccess={() => {
+          setNotificationsList([]);
+          setUnreadNotificationsCount(0);
+          showToast(
+            'success',
+            isTe
+              ? 'అన్ని హెచ్చరికలు విజయవంతంగా తొలగించబడ్డాయి.'
+              : 'All alerts have been deleted successfully.'
+          );
         }}
       />
 

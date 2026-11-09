@@ -141,10 +141,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       </header>
 
       {/* Main Login Workspace: Side-by-Side on Desktop, Stacked on Mobile */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-10 flex items-center justify-center">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-3 sm:p-6 lg:p-10 flex items-center justify-center">
         <div className="w-full bg-white border border-[#E2E8D8] rounded-3xl shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-2">
           {/* Left Column (Desktop) / Top Banner (Mobile): Provided Crop Radar Image */}
-          <div className="relative bg-[#1E3B27] flex flex-col justify-end p-6 sm:p-8 min-h-[260px] sm:min-h-[360px] md:min-h-[580px] overflow-hidden">
+          <div className="relative bg-[#1E3B27] flex flex-col justify-end p-4 sm:p-6 md:p-8 min-h-[170px] sm:min-h-[260px] md:min-h-[520px] overflow-hidden">
             <img
               src={cropRadarLoginImg}
               alt="Indian farmers managing healthy crops with Crop Radar"
@@ -154,12 +154,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <div className="absolute inset-0 bg-gradient-to-t from-[#0A1A10]/90 via-[#0A1A10]/40 to-transparent"></div>
 
             {/* Floating Banner content on the image */}
-            <div className="relative z-10 space-y-3 text-white">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-xs font-bold shadow-xs">
+            <div className="relative z-10 space-y-2 sm:space-y-3 text-white">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-[11px] sm:text-xs font-bold shadow-xs">
                 <Sprout className="w-3.5 h-3.5 text-lime-400" />
                 <span>{isTe ? 'రైతులకు సాంకేతిక అండ' : 'Smart Agricultural Companion'}</span>
               </div>
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-white leading-tight">
+              <h2 className="text-lg sm:text-2xl lg:text-3xl font-black text-white leading-tight">
                 {isTe ? 'మీ పొలానికి నమ్మకమైన డిజిటల్ వ్యవసాయ సహాయకుడు' : 'Intelligent Crop Protection for Every Indian Farmer'}
               </h2>
               <p className="text-xs sm:text-sm text-lime-100/90 leading-relaxed max-w-md hidden sm:block">
@@ -171,13 +171,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </div>
 
           {/* Right Column: Authentication Form Card */}
-          <div className="p-6 sm:p-8 lg:p-12 flex flex-col justify-center space-y-6">
+          <div className="p-4 sm:p-8 lg:p-12 flex flex-col justify-center space-y-4 sm:space-y-6">
             <div className="space-y-1.5">
               <span className="text-xs font-bold uppercase tracking-wider text-[#256E3A] flex items-center gap-1.5">
                 <Shield className="w-3.5 h-3.5" />
                 <span>{isTe ? 'సురక్షిత లాగిన్' : 'Welcome to CropRadar'}</span>
               </span>
-              <h3 className="text-2xl sm:text-3xl font-extrabold text-[#14281D] tracking-tight">
+              <h3 className="text-xl sm:text-3xl font-extrabold text-[#14281D] tracking-tight">
                 {isTe ? 'లాగిన్ చేయండి' : 'Sign in to continue'}
               </h3>
               <p className="text-xs sm:text-sm text-[#5C6F64] leading-relaxed">
@@ -201,12 +201,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 type="button"
                 onClick={handleGoogleAuth}
                 disabled={isSigningInGoogle || isSigningInGuest}
-                className="w-full flex items-center justify-center gap-3 px-5 py-3.5 rounded-2xl bg-white hover:bg-[#F3F6EF] border border-[#CBD9BE] text-[#14281D] text-sm font-bold shadow-xs transition-all cursor-pointer disabled:opacity-60"
+                className="w-full min-h-[44px] flex items-center justify-center gap-3 px-4 py-3 sm:px-5 sm:py-3.5 rounded-2xl bg-white hover:bg-[#F3F6EF] border border-[#CBD9BE] text-[#14281D] text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer disabled:opacity-60"
               >
                 {isSigningInGoogle ? (
                   <Loader2 className="w-4 h-4 animate-spin text-[#256E3A]" />
                 ) : (
-                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                     <path
                       fill="#4285F4"
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -237,7 +237,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </button>
 
               {/* Divider */}
-              <div className="relative flex items-center justify-center my-3">
+              <div className="relative flex items-center justify-center my-2 sm:my-3">
                 <div className="border-t border-[#E2E8D8] w-full"></div>
                 <span className="bg-white px-3 text-[11px] uppercase font-bold text-[#7E9085]">
                   {isTe ? 'లేదా' : 'or continue as'}
@@ -250,12 +250,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 type="button"
                 onClick={handleGuestAuth}
                 disabled={isSigningInGuest || isSigningInGoogle}
-                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-sm font-bold shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-60"
+                className="w-full min-h-[44px] flex items-center justify-center gap-2 px-4 py-3 sm:px-5 sm:py-3.5 rounded-2xl bg-[#256E3A] hover:bg-[#1E582E] text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-60"
               >
                 {isSigningInGuest ? (
                   <Loader2 className="w-4 h-4 animate-spin text-white" />
                 ) : (
-                  <UserCheck className="w-4 h-4 text-lime-300" />
+                  <UserCheck className="w-4 h-4 text-lime-300 shrink-0" />
                 )}
                 <span>
                   {isSigningInGuest
@@ -266,7 +266,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     ? 'అతిథి రైతుగా కొనసాగండి (ఖాతా అవసరం లేదు)'
                     : 'Continue as Guest Farmer'}
                 </span>
-                <ArrowRight className="w-4 h-4 ml-1 opacity-80" />
+                <ArrowRight className="w-4 h-4 ml-1 opacity-80 shrink-0" />
               </button>
             </div>
 
@@ -293,13 +293,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                         value={emailInput}
                         onChange={(e) => setEmailInput(e.target.value)}
                         placeholder={isTe ? 'మీ ఇమెయిల్ చిరునామా' : 'farmer@example.com'}
-                        className="w-full pl-9 pr-3 py-2 text-xs bg-[#FBFDF9] border border-[#D9E2CE] rounded-xl text-[#14281D] focus:ring-2 focus:ring-[#256E3A] focus:outline-none"
+                        className="w-full pl-9 pr-3 py-2 text-base sm:text-xs bg-[#FBFDF9] border border-[#D9E2CE] rounded-xl text-[#14281D] focus:ring-2 focus:ring-[#256E3A] focus:outline-none"
                       />
                     </div>
                     <button
                       type="submit"
                       disabled={isSendingOtp}
-                      className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#CBD9BE] text-[#14281D] text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-60"
+                      className="px-3.5 py-2 min-h-[38px] rounded-xl bg-white hover:bg-[#F3F6EF] border border-[#CBD9BE] text-[#14281D] text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-60 shrink-0"
                     >
                       {isSendingOtp ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-[#256E3A]" />

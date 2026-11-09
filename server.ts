@@ -300,6 +300,7 @@ const inMemoryNotificationsQueue: Array<{
   outbreakTimestamp?: string;
   isRead: boolean;
   precautions?: BiologicalPrecaution[];
+  createdAt?: string;
 }> = [
   {
     id: 'notif-1',
@@ -317,6 +318,7 @@ const inMemoryNotificationsQueue: Array<{
     referenceReviewDate: '2026-09-15',
     timestamp: '2 hours ago',
     isRead: false,
+    createdAt: new Date().toISOString(),
     precautions: [
       {
         targetCrop: 'Chilli',
@@ -347,6 +349,7 @@ const inMemoryNotificationsQueue: Array<{
     descTe: 'గాలి వేగం 18 km/h కంటే ఎక్కువ ఉండే అవకాశం ఉంది. మందు పక్క పొలాలకు కొట్టుకుపోయే ప్రమాదం ఉంది.',
     timestamp: '5 hours ago',
     isRead: true,
+    createdAt: new Date().toISOString(),
   },
 ];
 
@@ -1145,6 +1148,7 @@ async function processOutbreakAndNotifications(
       timestamp: 'Just now (ఇప్పుడే)',
       outbreakTimestamp: nowFormatted,
       isRead: false,
+      createdAt: new Date().toISOString(),
       precautions: extensionPrecautions,
     };
 
@@ -1891,6 +1895,8 @@ app.get('/api/disease-radar', async (req: Request, res: Response) => {
 
 app.get('/api/notifications', async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.id;
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const cutoffTime = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
   if (userId) {
     if (isSupabaseConfigured && supabaseAdmin) {
@@ -1899,6 +1905,7 @@ app.get('/api/notifications', async (req: AuthenticatedRequest, res: Response) =
           .from('notifications')
           .select('*')
           .eq('recipient_user_id', userId)
+          .gte('created_at', thirtyDaysAgo)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -1943,9 +1950,9 @@ app.get('/api/notifications', async (req: AuthenticatedRequest, res: Response) =
       }
     }
 
-    // In-memory notifications isolated to authenticated user
+    // In-memory notifications isolated to authenticated user (within 30 days)
     const userNotifs = inMemoryNotificationsQueue
-      .filter((n) => n.userId === userId)
+      .filter((n) => n.userId === userId && (!n.createdAt || new Date(n.createdAt).getTime() >= cutoffTime))
       .map((n) => ({
         ...n,
         outbreakTimestamp: n.outbreakTimestamp || new Date().toLocaleString([], {
@@ -1963,9 +1970,9 @@ app.get('/api/notifications', async (req: AuthenticatedRequest, res: Response) =
     });
   }
 
-  // Unauthenticated / Guest session: Guest only sees guest notifications
+  // Unauthenticated / Guest session: Guest only sees guest notifications within 30 days
   const guestNotifs = inMemoryNotificationsQueue
-    .filter((n) => n.userId === 'guest-session')
+    .filter((n) => n.userId === 'guest-session' && (!n.createdAt || new Date(n.createdAt).getTime() >= cutoffTime))
     .map((n) => ({
       ...n,
       outbreakTimestamp: n.outbreakTimestamp || new Date().toLocaleString([], {
@@ -2034,6 +2041,102 @@ app.patch('/api/notifications/:id/read', async (req: AuthenticatedRequest, res: 
   if (found) found.isRead = true;
 
   res.json({ success: true, id: notifId, isRead: true });
+});
+
+app.delete('/api/notifications', async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.id;
+
+  if (userId) {
+    if (isSupabaseConfigured && supabaseAdmin) {
+      try {
+        const { error, count } = await supabaseAdmin
+          .from('notifications')
+          .delete({ count: 'exact' })
+          .eq('recipient_user_id', userId);
+
+        if (error) {
+          console.warn('Supabase delete all notifications error:', error.message);
+          return res.status(500).json({ success: false, error: 'Database deletion failed.' });
+        }
+
+        // Clean up in-memory queue for this user
+        for (let i = inMemoryNotificationsQueue.length - 1; i >= 0; i--) {
+          if (inMemoryNotificationsQueue[i].userId === userId) {
+            inMemoryNotificationsQueue.splice(i, 1);
+          }
+        }
+
+        return res.json({
+          success: true,
+          deletedCount: count ?? 0,
+          unreadCount: 0,
+        });
+      } catch (err: any) {
+        console.warn('Supabase delete all notifications exception:', err.message);
+        return res.status(500).json({ success: false, error: err.message || 'Error deleting notifications' });
+      }
+    }
+
+    // In-memory queue deletion for authenticated user
+    let deletedCount = 0;
+    for (let i = inMemoryNotificationsQueue.length - 1; i >= 0; i--) {
+      if (inMemoryNotificationsQueue[i].userId === userId) {
+        inMemoryNotificationsQueue.splice(i, 1);
+        deletedCount++;
+      }
+    }
+
+    return res.json({
+      success: true,
+      deletedCount,
+      unreadCount: 0,
+    });
+  }
+
+  // Guest / unauthenticated fallback: clears guest notifications
+  let deletedCount = 0;
+  for (let i = inMemoryNotificationsQueue.length - 1; i >= 0; i--) {
+    if (inMemoryNotificationsQueue[i].userId === 'guest-session') {
+      inMemoryNotificationsQueue.splice(i, 1);
+      deletedCount++;
+    }
+  }
+
+  return res.json({
+    success: true,
+    deletedCount,
+    unreadCount: 0,
+  });
+});
+
+app.delete('/api/notifications/:id', async (req: AuthenticatedRequest, res: Response) => {
+  const notifId = req.params.id;
+  const userId = req.user?.id;
+
+  if (userId && isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { error } = await supabaseAdmin
+        .from('notifications')
+        .delete()
+        .eq('id', notifId)
+        .eq('recipient_user_id', userId);
+
+      if (error) {
+        return res.status(500).json({ success: false, error: error.message });
+      }
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  const idx = inMemoryNotificationsQueue.findIndex(
+    (n) => n.id === notifId && (!userId || n.userId === userId || n.userId === 'guest-session')
+  );
+  if (idx !== -1) {
+    inMemoryNotificationsQueue.splice(idx, 1);
+  }
+
+  res.json({ success: true, id: notifId });
 });
 
 /**

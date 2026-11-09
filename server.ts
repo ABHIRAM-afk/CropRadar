@@ -281,10 +281,15 @@ communityDiseaseReports.forEach((report) => {
   }
 });
 
+// User-specific hidden outbreak IDs: Map<userId, Set<outbreakId>>
+// Allows farmers to hide an alert from their own radar view without deleting it for others
+const userHiddenOutbreaks = new Map<string, Set<string>>();
+
 // Notifications Queue (in-memory demo fallback)
 const inMemoryNotificationsQueue: Array<{
   id: string;
   userId?: string;
+  outbreakId?: string;
   type: 'outbreak_nearby' | 'weather_warning' | 'resistance_alert';
   targetRelevance?: 'direct_host' | 'vector_host' | 'broad_host' | 'general_notice';
   titleEn: string;
@@ -962,6 +967,7 @@ async function processOutbreakAndNotifications(
     pathogenSusceptibleHosts: pathogenHosts,
     vectorReservoirHosts: vectorHosts,
     isBroadHostRange: isBroadHost,
+    reporterUserId: reporterUserId || undefined,
   };
 
   // 7. Save to Supabase `disease_outbreaks` table (server service role)
@@ -1146,9 +1152,9 @@ async function processOutbreakAndNotifications(
       referenceSourceUrl: extensionPrecautions[0]?.sourceUrl || 'https://angrau.ac.in',
       referenceReviewDate: extensionPrecautions[0]?.reviewDate || '2026-09-15',
       timestamp: 'Just now (ఇప్పుడే)',
-      outbreakTimestamp: nowFormatted,
+      outbreakTimestamp: newReport.timestamp,
       isRead: false,
-      createdAt: new Date().toISOString(),
+      createdAt: newReport.timestamp,
       precautions: extensionPrecautions,
     };
 
@@ -1225,22 +1231,15 @@ async function processOutbreakAndNotifications(
     }
   }
 
-  const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const nowFullTimestamp = new Date().toLocaleString([], {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const eventTimestampIso = newReport.timestamp || new Date().toISOString();
 
   return {
     outbreakCreated: true,
     outbreakId: savedOutbreakId || newReport.id,
     alertDispatched: dispatchedAlerts.length > 0,
     alertedFarmsCount: dispatchedAlerts.length,
-    dispatchedTime: nowTime,
-    dispatchedTimestamp: nowFullTimestamp,
+    dispatchedTime: eventTimestampIso,
+    dispatchedTimestamp: eventTimestampIso,
     report: newReport,
     alertedFarms: dispatchedAlerts,
     dbWritesSucceeded: !isSupabaseConfigured || (dbOutbreakSuccess && allNotifWritesSucceeded),
@@ -1837,12 +1836,40 @@ app.post('/api/disease-radar/auto-outbreak', async (req: AuthenticatedRequest, r
  * - Explanatory label: "AI-assisted, not field-confirmed"
  * - No verified status columns
  */
-app.get('/api/disease-radar', async (req: Request, res: Response) => {
+app.get('/api/disease-radar', async (req: AuthenticatedRequest, res: Response) => {
   const lat = parseFloat(req.query.lat as string) || 16.3067;
   const lon = parseFloat(req.query.lon as string) || 80.4365;
   const radiusKm = parseFloat(req.query.radiusKm as string) || 35;
+  const currentUserId = req.user?.id;
 
-  let allReports = communityDiseaseReports;
+  // Retrieve user's hidden outbreaks to exclude from their personal radar
+  const userHidden = new Set<string>();
+  if (currentUserId) {
+    const memHidden = userHiddenOutbreaks.get(currentUserId);
+    if (memHidden) {
+      memHidden.forEach((id) => userHidden.add(id));
+    }
+    if (isSupabaseConfigured && supabaseAdmin) {
+      try {
+        const { data: hiddenData } = await supabaseAdmin
+          .from('user_hidden_outbreaks')
+          .select('outbreak_id')
+          .eq('user_id', currentUserId);
+        if (hiddenData) {
+          hiddenData.forEach((row: any) => userHidden.add(row.outbreak_id));
+        }
+      } catch (err: any) {
+        // Fallback to in-memory store if DB table not yet applied
+      }
+    }
+  }
+
+  // Fallback in-memory reports
+  let allReports: DiseaseReport[] = communityDiseaseReports.map((r) => ({
+    ...r,
+    timestamp: r.timestamp || new Date().toISOString(),
+    isOwnReport: Boolean(currentUserId && (r.reporterUserId === currentUserId || (r as any).reporter_user_id === currentUserId)),
+  }));
 
   if (isSupabaseConfigured && supabaseAdmin) {
     try {
@@ -1860,7 +1887,7 @@ app.get('/api/disease-radar', async (req: Request, res: Response) => {
           diseaseCategory: r.disease_category,
           latitude: Number(r.latitude),
           longitude: Number(r.longitude),
-          timestamp: r.created_at,
+          timestamp: r.created_at || new Date().toISOString(),
           severity: r.severity,
           generalizedLocation: r.generalized_location,
           symptoms: r.symptoms,
@@ -1869,11 +1896,18 @@ app.get('/api/disease-radar', async (req: Request, res: Response) => {
           pathogenSusceptibleHosts: r.pathogen_susceptible_hosts,
           vectorReservoirHosts: r.vector_reservoir_hosts,
           isBroadHostRange: r.is_broad_host_range,
+          // Calculate ownership server-side; reporter identity is kept private
+          isOwnReport: Boolean(currentUserId && r.reporter_user_id === currentUserId),
         }));
       }
     } catch (err) {
       console.warn('Supabase fetch disease_outbreaks error:', err);
     }
+  }
+
+  // Filter out any outbreaks hidden specifically by the requesting user
+  if (userHidden.size > 0) {
+    allReports = allReports.filter((r) => !userHidden.has(r.id));
   }
 
   const nearbyReports = filterReportsWithinRadius(lat, lon, allReports, radiusKm);
@@ -1892,6 +1926,188 @@ app.get('/api/disease-radar', async (req: Request, res: Response) => {
     stats,
   });
 });
+
+/**
+ * Remove an outbreak from the signed-in user's personal radar view.
+ * Persists for this user without deleting the shared report or affecting others.
+ */
+app.post('/api/disease-radar/hide-outbreak', async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required to remove outbreaks from your radar view',
+    });
+  }
+
+  const { outbreakId } = req.body;
+  if (!outbreakId) {
+    return res.status(400).json({ success: false, error: 'outbreakId is required' });
+  }
+
+  if (!userHiddenOutbreaks.has(userId)) {
+    userHiddenOutbreaks.set(userId, new Set());
+  }
+  userHiddenOutbreaks.get(userId)!.add(outbreakId);
+
+  if (isSupabaseConfigured && supabaseAdmin && isValidUuid(userId) && isValidUuid(outbreakId)) {
+    try {
+      await supabaseAdmin
+        .from('user_hidden_outbreaks')
+        .upsert(
+          { user_id: userId, outbreak_id: outbreakId },
+          { onConflict: 'user_id,outbreak_id' }
+        );
+    } catch (err: any) {
+      console.warn('Note: user_hidden_outbreaks table not applied yet; using memory:', err.message);
+    }
+  }
+
+  return res.json({
+    success: true,
+    hiddenOutbreakId: outbreakId,
+    message: 'Outbreak hidden from your personal radar view',
+  });
+});
+
+/**
+ * Get all hidden outbreak IDs for the authenticated user.
+ */
+app.get('/api/disease-radar/hidden-outbreaks', async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.json({ success: true, hiddenOutbreakIds: [] });
+  }
+
+  const hidden = new Set<string>(userHiddenOutbreaks.get(userId) || []);
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data } = await supabaseAdmin
+        .from('user_hidden_outbreaks')
+        .select('outbreak_id')
+        .eq('user_id', userId);
+      if (data) {
+        data.forEach((row: any) => hidden.add(row.outbreak_id));
+      }
+    } catch (err: any) {
+      // Fallback to memory
+    }
+  }
+
+  return res.json({ success: true, hiddenOutbreakIds: Array.from(hidden) });
+});
+
+/**
+ * Delete your own outbreak for everyone.
+ * Server verifies that req.user.id matches reporter_user_id.
+ * Deletes the report from disease_outbreaks AND all linked recipient notifications.
+ */
+const handleDeleteOutbreakForEveryone = async (req: AuthenticatedRequest, res: Response) => {
+  const outbreakId = req.params.id || req.body?.outbreakId;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized: Authentication required to delete an outbreak',
+    });
+  }
+
+  if (!outbreakId) {
+    return res.status(400).json({ success: false, error: 'outbreakId is required' });
+  }
+
+  // 1. Supabase database check & delete
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { data: outbreak, error: fetchErr } = await supabaseAdmin
+        .from('disease_outbreaks')
+        .select('id, reporter_user_id')
+        .eq('id', outbreakId)
+        .maybeSingle();
+
+      if (fetchErr) {
+        console.warn('Supabase fetch outbreak for deletion error:', fetchErr);
+        return res.status(500).json({ success: false, error: 'Failed to verify outbreak ownership' });
+      }
+
+      if (outbreak) {
+        // Strict ownership check: only the reporting farmer can delete for everyone
+        if (outbreak.reporter_user_id && outbreak.reporter_user_id !== userId) {
+          return res.status(403).json({
+            success: false,
+            error: 'Forbidden: You can only delete outbreaks reported by your farm',
+          });
+        }
+
+        // Delete all linked recipient notifications across all farmers
+        const { error: notifErr } = await supabaseAdmin
+          .from('notifications')
+          .delete()
+          .eq('outbreak_id', outbreakId);
+
+        if (notifErr) {
+          console.warn('Notice: deleting linked notifications returned:', notifErr.message);
+        }
+
+        // Delete the outbreak report itself from the community radar
+        const { error: deleteErr } = await supabaseAdmin
+          .from('disease_outbreaks')
+          .delete()
+          .eq('id', outbreakId);
+
+        if (deleteErr) {
+          console.warn('Failed to delete disease outbreak from DB:', deleteErr.message);
+          return res.status(500).json({ success: false, error: 'Failed to delete outbreak from database' });
+        }
+
+        // Clean up any hidden records for this deleted outbreak
+        try {
+          await supabaseAdmin
+            .from('user_hidden_outbreaks')
+            .delete()
+            .eq('outbreak_id', outbreakId);
+        } catch {}
+      }
+    } catch (err: any) {
+      console.warn('Exception during outbreak deletion in Supabase:', err.message);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // 2. In-memory cleanup
+  const memIdx = communityDiseaseReports.findIndex((r) => r.id === outbreakId);
+  if (memIdx !== -1) {
+    const memReport = communityDiseaseReports[memIdx];
+    if (memReport.reporterUserId && memReport.reporterUserId !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: You can only delete outbreaks reported by your farm',
+      });
+    }
+    communityDiseaseReports.splice(memIdx, 1);
+  }
+
+  // Remove linked notifications from in-memory queue for all recipients
+  for (let i = inMemoryNotificationsQueue.length - 1; i >= 0; i--) {
+    if (inMemoryNotificationsQueue[i].outbreakId === outbreakId) {
+      inMemoryNotificationsQueue.splice(i, 1);
+    }
+  }
+
+  // Clear from in-memory user hidden sets
+  userHiddenOutbreaks.forEach((set) => set.delete(outbreakId));
+
+  return res.json({
+    success: true,
+    deletedOutbreakId: outbreakId,
+    message: 'Outbreak and linked notifications deleted for everyone',
+  });
+};
+
+app.delete('/api/disease-radar/outbreaks/:id', handleDeleteOutbreakForEveryone);
+app.post('/api/disease-radar/delete-outbreak', handleDeleteOutbreakForEveryone);
 
 app.get('/api/notifications', async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.id;
@@ -1928,14 +2144,9 @@ app.get('/api/notifications', async (req: AuthenticatedRequest, res: Response) =
           referenceSourceUrl: n.reference_source_url,
           referenceReviewDate: n.reference_review_date,
           precautions: n.precautions,
-          timestamp: new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          outbreakTimestamp: new Date(n.created_at).toLocaleString([], {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
+          timestamp: n.created_at, // raw ISO string in UTC
+          outbreakTimestamp: n.created_at, // raw ISO string in UTC
+          createdAt: n.created_at,
           isRead: n.is_read,
         }));
 
@@ -1955,13 +2166,9 @@ app.get('/api/notifications', async (req: AuthenticatedRequest, res: Response) =
       .filter((n) => n.userId === userId && (!n.createdAt || new Date(n.createdAt).getTime() >= cutoffTime))
       .map((n) => ({
         ...n,
-        outbreakTimestamp: n.outbreakTimestamp || new Date().toLocaleString([], {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
+        timestamp: n.createdAt || n.timestamp,
+        outbreakTimestamp: n.createdAt || n.outbreakTimestamp || n.timestamp,
+        createdAt: n.createdAt || n.timestamp,
       }));
     return res.json({
       success: true,
@@ -1975,13 +2182,9 @@ app.get('/api/notifications', async (req: AuthenticatedRequest, res: Response) =
     .filter((n) => n.userId === 'guest-session' && (!n.createdAt || new Date(n.createdAt).getTime() >= cutoffTime))
     .map((n) => ({
       ...n,
-      outbreakTimestamp: n.outbreakTimestamp || new Date().toLocaleString([], {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      timestamp: n.createdAt || n.timestamp,
+      outbreakTimestamp: n.createdAt || n.outbreakTimestamp || n.timestamp,
+      createdAt: n.createdAt || n.timestamp,
     }));
   res.json({
     success: true,

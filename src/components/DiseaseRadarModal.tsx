@@ -11,9 +11,11 @@ import {
   Sparkles,
   CheckCircle2,
   ExternalLink,
+  EyeOff,
 } from 'lucide-react';
 import L from 'leaflet';
 import { DiseaseReport, Language } from '../types/agricultural';
+import { authFetch } from '../lib/supabaseClient';
 
 interface DiseaseRadarModalProps {
   isOpen: boolean;
@@ -23,6 +25,8 @@ interface DiseaseRadarModalProps {
   selectedOutbreakId?: string | null;
   onReportOutbreak: (newReport: Partial<DiseaseReport>) => Promise<void>;
   language: Language;
+  currentUserId?: string;
+  onRemoveFromMyRadar?: (outbreakId: string) => Promise<void>;
 }
 
 export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
@@ -33,6 +37,8 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
   selectedOutbreakId,
   onReportOutbreak,
   language,
+  currentUserId,
+  onRemoveFromMyRadar,
 }) => {
   const isTe = language === 'te';
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -41,6 +47,58 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
   const [activeTab, setActiveTab] = useState<'map' | 'report'>('map');
   const [mobileViewMode, setMobileViewMode] = useState<'map' | 'list'>('map');
   const [selectedReport, setSelectedReport] = useState<DiseaseReport | null>(null);
+
+  // Account-scoped hidden outbreak IDs loaded from Supabase user_hidden_outbreaks
+  const [hiddenOutbreakIds, setHiddenOutbreakIds] = useState<Set<string>>(new Set());
+
+  // Load account-scoped hidden alerts across devices when modal opens or user signs in
+  useEffect(() => {
+    let isMounted = true;
+    if (isOpen && currentUserId) {
+      authFetch('/api/disease-radar/hidden-outbreaks')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((json) => {
+          if (isMounted && json?.success && Array.isArray(json.hiddenOutbreakIds)) {
+            setHiddenOutbreakIds(new Set(json.hiddenOutbreakIds));
+          }
+        })
+        .catch((err) => console.warn('Failed to load account hidden outbreaks:', err));
+    } else if (!currentUserId) {
+      setHiddenOutbreakIds(new Set());
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, currentUserId]);
+
+  const handleRemoveFromMyRadar = async (outbreakId: string) => {
+    setHiddenOutbreakIds((prev) => {
+      const next = new Set(prev);
+      next.add(outbreakId);
+      return next;
+    });
+
+    if (selectedReport?.id === outbreakId) {
+      setSelectedReport(null);
+    }
+
+    // Safely remove marker from map instance
+    const marker = markerMapRef.current.get(outbreakId);
+    if (marker && mapInstanceRef.current) {
+      mapInstanceRef.current.removeLayer(marker);
+      markerMapRef.current.delete(outbreakId);
+    }
+
+    if (onRemoveFromMyRadar) {
+      try {
+        await onRemoveFromMyRadar(outbreakId);
+      } catch (err) {
+        console.warn('Server sync error for hiding outbreak:', err);
+      }
+    }
+  };
+
+  const visibleReports = reports.filter((rep) => !hiddenOutbreakIds.has(rep.id));
 
   const hasFarmCoords = Boolean(
     farmerLocation?.hasExplicitLocation &&
@@ -103,7 +161,7 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
       }
       markerMapRef.current.clear();
     };
-  }, [isOpen, activeTab, reports, selectedOutbreakId, hasFarmCoords]);
+  }, [isOpen, activeTab, visibleReports, selectedOutbreakId, hasFarmCoords]);
 
   const initMap = () => {
     if (!mapContainerRef.current) return;
@@ -115,7 +173,7 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
 
     // Determine initial center and target outbreak
     const targetOutbreak = selectedOutbreakId
-      ? reports.find((r) => r.id === selectedOutbreakId)
+      ? visibleReports.find((r) => r.id === selectedOutbreakId)
       : null;
 
     let centerLat = 16.3067;
@@ -131,9 +189,9 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
       centerLat = farmerLocation.lat;
       centerLon = farmerLocation.lon;
       initialZoom = 12;
-    } else if (reports.length > 0 && Number.isFinite(reports[0].latitude) && Number.isFinite(reports[0].longitude)) {
-      centerLat = reports[0].latitude;
-      centerLon = reports[0].longitude;
+    } else if (visibleReports.length > 0 && Number.isFinite(visibleReports[0].latitude) && Number.isFinite(visibleReports[0].longitude)) {
+      centerLat = visibleReports[0].latitude;
+      centerLon = visibleReports[0].longitude;
       initialZoom = 11;
     }
 
@@ -211,7 +269,7 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
     }
 
     // 2. Disease Outbreak Markers (Centroid Coordinates)
-    reports.forEach((rep) => {
+    visibleReports.forEach((rep) => {
       if (!Number.isFinite(rep.latitude) || !Number.isFinite(rep.longitude)) return;
 
       const [repLat, repLon] = getDeconflictedCoords(rep.latitude, rep.longitude);
@@ -420,7 +478,7 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
                       : 'text-[#4A6052] hover:text-[#14281D]'
                   }`}
                 >
-                  📋 {isTe ? `జాబితా (${reports.length})` : `Outbreaks (${reports.length})`}
+                  📋 {isTe ? `జాబితా (${visibleReports.length})` : `Outbreaks (${visibleReports.length})`}
                 </button>
               </div>
             </div>
@@ -480,7 +538,7 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
               </div>
 
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#4A6052]">
-                {isTe ? `పరిసర ప్రాంతాల తెగుళ్లు (${reports.length})` : `Nearby Outbreak Alerts (${reports.length})`}
+                {isTe ? `పరిసర ప్రాంతాల తెగుళ్లు (${visibleReports.length})` : `Nearby Outbreak Alerts (${visibleReports.length})`}
               </h3>
 
               {/* Selected report card if clicked */}
@@ -509,7 +567,7 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
 
               {/* Outbreaks List */}
               <div className="space-y-2">
-                {reports.map((rep) => {
+                {visibleReports.map((rep) => {
                   const isItemHighlighted = (selectedReport?.id === rep.id) || (selectedOutbreakId === rep.id);
                   return (
                     <button
@@ -537,13 +595,24 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
                           : 'bg-white hover:bg-[#F3F6EF] border-[#D9E2CE]'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#14281D] truncate">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <span className="text-xs font-bold text-[#14281D] truncate flex-1 min-w-0">
                           {rep.diseaseName}
                         </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#256E3A]/10 text-[#256E3A] border border-[#256E3A]/20 shrink-0">
-                          AI-assisted
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {rep.isOwnReport ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-[#1E582E] border border-emerald-300 shrink-0">
+                              {isTe ? 'మీ నివేదిక' : 'Your outbreak'}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                              {isTe ? 'సమీప నివేదిక' : 'Nearby outbreak'}
+                            </span>
+                          )}
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-[#256E3A]/10 text-[#256E3A] border border-[#256E3A]/20 shrink-0">
+                            AI-assisted
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center justify-between text-[11px] text-[#5C6F64] mt-1">
                         <span>{rep.crop}</span>
@@ -553,10 +622,25 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
                       </div>
                       <div className="flex items-center justify-between text-[10px] text-[#5C6F64] mt-1 pt-1 border-t border-[#EAEFE2]">
                         <span className="truncate max-w-[120px]">📍 {rep.generalizedLocation}</span>
-                        <span className="flex items-center gap-1 font-medium shrink-0">
-                          <Clock className="w-3 h-3 text-[#256E3A]" />
-                          {rep.timestamp ? new Date(rep.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="flex items-center gap-1 font-medium">
+                            <Clock className="w-3 h-3 text-[#256E3A]" />
+                            {rep.timestamp ? new Date(rep.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveFromMyRadar(rep.id);
+                            }}
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-[#7E9085] hover:text-rose-600 transition-colors p-1 rounded hover:bg-rose-50 cursor-pointer"
+                            title={isTe ? 'నా రాడార్ నుండి తీసివేయి' : 'Remove from my radar'}
+                          >
+                            <EyeOff className="w-3 h-3" />
+                            <span className="hidden min-[380px]:inline">{isTe ? 'తీసివేయి' : 'Remove from my radar'}</span>
+                            <span className="min-[380px]:hidden">{isTe ? 'తీసివేయి' : 'Remove'}</span>
+                          </button>
+                        </div>
                       </div>
                     </button>
                   );

@@ -188,6 +188,8 @@ export interface DiseaseReport {
   isBroadHostRange?: boolean;
   isAiAssisted?: boolean;
   verified?: boolean;
+  reporterUserId?: string;
+  isOwnReport?: boolean;
 }
 
 export interface NotificationItem {
@@ -206,6 +208,7 @@ export interface NotificationItem {
   referenceReviewDate?: string;
   timestamp: string;
   outbreakTimestamp?: string;
+  createdAt?: string;
   isRead: boolean;
   precautions?: BiologicalPrecaution[];
 }

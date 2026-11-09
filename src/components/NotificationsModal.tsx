@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Language, NotificationItem } from '../types/agricultural';
 import { authFetch } from '../lib/supabaseClient';
+import { formatLocalTime, formatLocalDateTime } from '../utils/dateFormatter';
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -343,14 +344,14 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                     </span>
                     <div className="text-right shrink-0">
                       <span className="text-[11px] text-[#5C6F64] font-bold block">
-                        {notif.timestamp}
+                        {formatLocalTime(notif.outbreakTimestamp || notif.timestamp || notif.createdAt) || notif.timestamp}
                       </span>
                       {notif.outbreakTimestamp && (
                         <span className="text-[10px] text-[#7E9085] flex items-center gap-1 mt-0.5 justify-end font-medium">
                           <Clock className="w-3 h-3 text-[#256E3A]" />
                           <span>
                             {isTe ? 'సంభవించిన సమయం: ' : 'Occurred: '}
-                            {notif.outbreakTimestamp}
+                            {formatLocalDateTime(notif.outbreakTimestamp) || notif.outbreakTimestamp}
                           </span>
                         </span>
                       )}

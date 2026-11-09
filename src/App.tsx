@@ -46,6 +46,7 @@ import { OutbreakAlertConfirmationCard } from './components/OutbreakAlertConfirm
 import { LoginPage } from './components/LoginPage';
 import { ensureGuestOrAuthSession, getSupabaseClient, signOutUser, authFetch } from './lib/supabaseClient';
 import { optimizeImageForAnalysis } from './utils/imageOptimizer';
+import { formatLocalTime } from './utils/dateFormatter';
 
 const PROFILE_STORAGE_KEY = 'cropradar.farmer-profile.v2';
 const getProfileStorageKey = (userId?: string) => `${PROFILE_STORAGE_KEY}:${userId || 'guest'}`;
@@ -437,7 +438,7 @@ export default function App() {
 
   const fetchDiseaseReports = async (lat: number, lon: number) => {
     try {
-      const resp = await fetch(`/api/disease-radar?lat=${lat}&lon=${lon}&radiusKm=35`);
+      const resp = await authFetch(`/api/disease-radar?lat=${lat}&lon=${lon}&radiusKm=35`);
       if (resp.ok) {
         const json = await resp.json();
         if (json.success) {
@@ -968,21 +969,23 @@ export default function App() {
           nearbyCount: count,
           dispatchedTime: sentTime,
           outbreakId: json.report?.id,
+          statusMessageEn: `Outbreak report sent. ${count} nearby ${count === 1 ? 'farmer' : 'farmers'} with potentially affected crops ${count === 1 ? 'was' : 'were'} notified.`,
+          statusMessageTe: `తెగులు నివేదిక పంపబడింది. ప్రభావిత పంటలు ఉన్న ${count} మంది సమీప రైతులకు సమాచారం చేరింది.`,
         });
 
         if (json.alertDispatched) {
           showToast(
             'success',
             isTe
-              ? `🚨 5 కి.మీ కమ్యూనిటీ తెగులు హెచ్చరిక ${count} సమీప రైతులకు పంపబడింది (${sentTime}).`
-              : `🚨 5 km Community Outbreak Alert dispatched to ${count} nearby farms (${sentTime}).`
+              ? `తెగులు నివేదిక పంపబడింది. ${count} మంది సమీప రైతులకు సమాచారం చేరింది.`
+              : `Outbreak report sent. ${count} nearby ${count === 1 ? 'farmer' : 'farmers'} with potentially affected crops ${count === 1 ? 'was' : 'were'} notified.`
           );
         } else {
           showToast(
             'info',
             isTe
-              ? 'సమీప 5 కి.మీ పరిధిలో ప్రభావిత పంటలు సాగుచేస్తున్న పొలాలు ప్రస్తుతం నమోదు కాలేదు.'
-              : '0 nearby farms currently cultivate susceptible host crops within 5 km.'
+              ? 'తెగులు నివేదిక భద్రపరచబడింది. సమాచారం పంపడానికి 5 కి.మీ పరిధిలో ప్రభావిత పంటలు సాగుచేస్తున్న రైతులు నమోదు కాలేదు.'
+              : 'Outbreak report saved. No nearby farmers with potentially affected crops were found within 5 km to notify.'
           );
         }
 
@@ -998,6 +1001,48 @@ export default function App() {
   const handleDismissOutbreakAlert = (messageId: string) => {
     updateMessageOutbreakStatus(messageId, { status: 'cancelled' });
     showToast('info', isTe ? 'కమ్యూనిటీ హెచ్చరిక రద్దు చేయబడింది.' : 'Community outbreak alert dismissed.');
+  };
+
+  const handleDeleteOutbreakForEveryone = async (messageId: string, outbreakId: string) => {
+    try {
+      const resp = await authFetch(`/api/disease-radar/outbreaks/${outbreakId}`, {
+        method: 'DELETE',
+      });
+      if (resp.ok) {
+        updateMessageOutbreakStatus(messageId, { isDeleted: true, status: 'cancelled' });
+        showToast(
+          'success',
+          isTe
+            ? 'కమ్యూనిటీ రాడార్ నుండి నివేదిక తొలగించబడింది మరియు అందరికీ నోటిఫికేషన్‌లు రద్దు చేయబడ్డాయి.'
+            : 'Outbreak report deleted from community radar and removed for all recipients.'
+        );
+        fetchDiseaseReports(profile.latitude, profile.longitude);
+        fetchNotifications();
+      } else {
+        const errJson = await resp.json().catch(() => ({}));
+        showToast(
+          'error',
+          errJson.error || (isTe ? 'నివేదికను తొలగించడం విఫలమైంది.' : 'Failed to delete outbreak report.')
+        );
+      }
+    } catch (err) {
+      console.warn('Failed to delete outbreak for everyone:', err);
+      showToast('error', isTe ? 'నివేదికను తొలగించడం విఫలమైంది.' : 'Failed to delete outbreak report.');
+    }
+  };
+
+  const handleRemoveFromMyRadar = async (outbreakId: string) => {
+    try {
+      await authFetch('/api/disease-radar/hide-outbreak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outbreakId }),
+      });
+      fetchDiseaseReports(profile.latitude, profile.longitude);
+      showToast('info', isTe ? 'హెచ్చరిక మీ రాడార్ వీక్షణ నుండి తీసివేయబడింది.' : 'Outbreak removed from your radar view.');
+    } catch (err) {
+      console.warn('Failed to hide outbreak on server:', err);
+    }
   };
 
   const handleOpenRadar = (outbreakId?: string | null) => {
@@ -1139,12 +1184,14 @@ export default function App() {
               vectorHosts: aiData.vectorReservoirHosts,
               precautions: aiData.extensionPrecautions,
               dbWritesSucceeded: outcome.dbWritesSucceeded,
+              statusMessageEn: `Outbreak report sent. ${outcome.alertedFarmsCount} nearby ${outcome.alertedFarmsCount === 1 ? 'farmer' : 'farmers'} with potentially affected crops ${outcome.alertedFarmsCount === 1 ? 'was' : 'were'} notified.`,
+              statusMessageTe: `తెగులు నివేదిక పంపబడింది. ప్రభావిత పంటలు ఉన్న ${outcome.alertedFarmsCount} మంది సమీప రైతులకు సమాచారం చేరింది.`,
             };
             showToast(
               'success',
               isTe
-                ? `5 కి.మీ కమ్యూనిటీ తెగులు హెచ్చరిక స్వయంచాలకంగా ${outcome.alertedFarmsCount} మంది రైతులకు పంపబడింది.`
-                : `5 km community outbreak alert automatically dispatched to ${outcome.alertedFarmsCount} nearby farm(s).`
+                ? `తెగులు నివేదిక పంపబడింది. ${outcome.alertedFarmsCount} మంది సమీప రైతులకు సమాచారం చేరింది.`
+                : `Outbreak report sent. ${outcome.alertedFarmsCount} nearby ${outcome.alertedFarmsCount === 1 ? 'farmer' : 'farmers'} with potentially affected crops ${outcome.alertedFarmsCount === 1 ? 'was' : 'were'} notified.`
             );
           } else if (outcome.outbreakCreated && outcome.alertedFarmsCount === 0) {
             autoOutbreakInfo = {
@@ -1163,12 +1210,14 @@ export default function App() {
               vectorHosts: aiData.vectorReservoirHosts,
               precautions: aiData.extensionPrecautions,
               dbWritesSucceeded: outcome.dbWritesSucceeded,
+              statusMessageEn: 'Outbreak report saved. No nearby farmers with potentially affected crops were found within 5 km to notify.',
+              statusMessageTe: 'తెగులు నివేదిక భద్రపరచబడింది. సమాచారం పంపడానికి 5 కి.మీ పరిధిలో ప్రభావిత పంటలు సాగుచేస్తున్న రైతులు నమోదు కాలేదు.',
             };
             showToast(
               'info',
               isTe
-                ? 'తెగులు నివేదిక 5 కి.మీ కమ్యూనిటీ రాడార్‌లో నమోదు చేయబడింది.'
-                : 'Outbreak report logged to 5 km Community Radar.'
+                ? 'తెగులు నివేదిక భద్రపరచబడింది. సమాచారం పంపడానికి 5 కి.మీ పరిధిలో ప్రభావిత పంటలు సాగుచేస్తున్న రైతులు నమోదు కాలేదు.'
+                : 'Outbreak report saved. No nearby farmers with potentially affected crops were found within 5 km to notify.'
             );
           } else if (outcome.reason) {
             const isLocationIssue = outcome.reason.toLowerCase().includes('location');
@@ -1398,7 +1447,7 @@ export default function App() {
         />
 
         {/* Center / Main Conversational Workspace */}
-        <main className="flex-1 flex flex-col p-2.5 sm:p-5 lg:p-6 space-y-3 sm:space-y-4 max-w-4xl w-full mx-auto min-w-0">
+        <main className="flex-1 flex flex-col p-1.5 min-[360px]:p-2.5 sm:p-5 lg:p-6 space-y-3 sm:space-y-4 max-w-4xl w-full mx-auto min-w-0 overflow-x-hidden">
           {/* GPS Location Warning Banner if Location is not configured */}
           {gpsStatus === 'failed' && !gpsBannerDismissed && !profile.hasExplicitLocation && (
             <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center justify-between gap-3 shadow-xs">
@@ -1536,7 +1585,7 @@ export default function App() {
                       {isTe ? msg.textTe || msg.textEn : msg.textEn}
                     </p>
                     <span className={`block text-[10px] mt-1.5 ${isFarmer ? 'text-lime-200' : 'text-[#7E9085]'}`}>
-                      {msg.timestamp}
+                      {formatLocalTime(msg.timestamp) || msg.timestamp}
                     </span>
                   </div>
 
@@ -1596,6 +1645,7 @@ export default function App() {
                             onConfirmSend={() => handleConfirmOutbreakAlert(msg.id, msg.outbreakAlert)}
                             onDismiss={() => handleDismissOutbreakAlert(msg.id)}
                             onOpenRadar={(outbreakId) => handleOpenRadar(outbreakId)}
+                            onDeleteForEveryone={(outbreakId) => handleDeleteOutbreakForEveryone(msg.id, outbreakId)}
                           />
                         </div>
                       )}
@@ -1701,6 +1751,8 @@ export default function App() {
           }
         }}
         language={language}
+        currentUserId={profile.id || undefined}
+        onRemoveFromMyRadar={handleRemoveFromMyRadar}
       />
 
       <FieldDiaryDrawer

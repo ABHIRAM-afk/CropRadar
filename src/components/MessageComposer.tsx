@@ -139,7 +139,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   };
 
   return (
-    <div className="sticky bottom-0 z-20 w-full bg-[#F8FAF5]/95 backdrop-blur-md border-t border-[#E2E8D8] px-1.5 min-[360px]:px-2.5 sm:px-6 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] transition-colors shadow-xs">
+    <div className="sticky bottom-0 z-20 w-full bg-[#F8FAF5]/95 backdrop-blur-md border-t border-[#E2E8D8] px-1.5 min-[360px]:px-2.5 sm:px-6 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] transition-colors shadow-xs overflow-hidden">
       <div className="max-w-4xl mx-auto">
         {/* Attached preview pill */}
         {attachedImage && (
@@ -197,7 +197,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex items-center gap-1 sm:gap-2">
+        <form onSubmit={handleSubmit} className="flex items-center gap-1 sm:gap-2 min-w-0 w-full">
           {/* 1. Attachment Button */}
           <input
             ref={fileInputRef}
@@ -215,6 +215,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             disabled={disabled || isOptimizingImage}
             title={isTe ? 'ఫోటో లేదా డాక్యుమెంట్ జోడించండి' : 'Attach crop photo or label'}
             aria-label="Attach file or photo"
+            style={{ flexShrink: 0 }}
             className="flex items-center justify-center w-8 h-8 min-[360px]:w-9 min-[360px]:h-9 sm:w-10 sm:h-10 rounded-2xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#4A6052] hover:text-[#256E3A] transition-colors disabled:opacity-50 cursor-pointer shrink-0 shadow-xs"
           >
             <Paperclip className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -230,13 +231,14 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             disabled={disabled || isOptimizingImage}
             title={isTe ? 'కెమెరాతో ఫోటో తీయండి' : 'Take a photo with camera'}
             aria-label="Open camera"
+            style={{ flexShrink: 0 }}
             className="flex items-center justify-center w-8 h-8 min-[360px]:w-9 min-[360px]:h-9 sm:w-10 sm:h-10 rounded-2xl bg-white hover:bg-[#F3F6EF] border border-[#D9E2CE] text-[#4A6052] hover:text-[#256E3A] transition-colors disabled:opacity-50 cursor-pointer shrink-0 shadow-xs"
           >
             <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
 
           {/* 3. Text Input (Message Composer) */}
-          <div className="flex-1 relative flex items-center min-w-0">
+          <div className="flex-1 relative flex items-center min-w-0" style={{ minWidth: 0, width: 0, flex: '1 1 0%' }}>
             <textarea
               rows={1}
               value={inputText}
@@ -248,7 +250,8 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                   ? 'సందేహం లేదా ఫోటో...'
                   : 'Ask question or upload leaf...'
               }
-              className="w-full resize-none py-1.5 sm:py-2.5 pl-2.5 sm:pl-3 pr-2 sm:pr-3 bg-white text-[#14281D] placeholder:text-[#7E9085] rounded-2xl border border-[#D9E2CE] focus:border-[#256E3A] focus:ring-1 focus:ring-[#256E3A] focus:outline-none text-base sm:text-sm max-h-24 transition-colors font-sans shadow-xs leading-normal"
+              style={{ minWidth: 0 }}
+              className="w-full resize-none py-1.5 sm:py-2.5 pl-2 sm:pl-3 pr-2 sm:pr-3 bg-white text-[#14281D] placeholder:text-[#7E9085] rounded-2xl border border-[#D9E2CE] focus:border-[#256E3A] focus:ring-1 focus:ring-[#256E3A] focus:outline-none text-base sm:text-sm max-h-24 transition-colors font-sans shadow-xs leading-normal"
             />
           </div>
 
@@ -263,6 +266,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                 : isTe ? 'మైక్రోఫోన్ ద్వారా మాట్లాడండి' : 'Speak in Telugu or English'
             }
             aria-label="Voice input"
+            style={{ flexShrink: 0 }}
             className={`flex items-center justify-center w-8 h-8 min-[360px]:w-9 min-[360px]:h-9 sm:w-10 sm:h-10 rounded-2xl border transition-all cursor-pointer shrink-0 shadow-xs ${
               isListening
                 ? 'bg-rose-100 border-rose-400 text-rose-700 animate-pulse'
@@ -277,6 +281,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             type="submit"
             disabled={(!inputText.trim() && !attachedImage) || disabled || isOptimizingImage}
             aria-label="Send message"
+            style={{ flexShrink: 0 }}
             className="flex items-center justify-center w-8 h-8 min-[360px]:w-9 min-[360px]:h-9 sm:w-10 sm:h-10 rounded-2xl bg-[#256E3A] hover:bg-[#1E582E] text-white font-bold shadow-sm transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0"
           >
             <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />

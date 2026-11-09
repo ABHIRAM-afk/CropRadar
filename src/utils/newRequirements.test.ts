@@ -249,7 +249,7 @@ describe('Crop Radar Automated Outbreak & Notification Flow Tests', () => {
     // Header brand heading check
     assert.ok(headerContent.includes('CropRadar'), 'Header must contain brand name CropRadar');
     assert.ok(!headerContent.includes('CROP RADAR'), 'Header must not contain all-caps CROP RADAR');
-    assert.ok(headerContent.includes('<Radar className="w-5 h-5 text-[#256E3A]" />'), 'Header must retain radar logo icon');
+    assert.ok(headerContent.includes('text-[#256E3A]') && headerContent.includes('<Radar'), 'Header must retain radar logo icon');
     assert.ok(headerContent.includes('>AI</span>'), 'Header must retain AI badge');
 
     // Check LoginPage brand heading

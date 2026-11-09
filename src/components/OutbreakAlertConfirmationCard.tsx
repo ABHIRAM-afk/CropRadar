@@ -13,12 +13,15 @@ import {
   Loader2,
   AlertCircle,
   Database,
+  Trash2,
 } from 'lucide-react';
 import { BiologicalPrecaution, Language } from '../types/agricultural';
+import { formatLocalTime } from '../utils/dateFormatter';
 
 interface OutbreakAlertConfirmationCardProps {
   outbreakAlert: {
     outbreakId?: string;
+    isDeleted?: boolean;
     status:
       | 'sent'
       | 'pending_confirmation'
@@ -49,6 +52,7 @@ interface OutbreakAlertConfirmationCardProps {
   onConfirmSend?: () => Promise<void>;
   onDismiss?: () => void;
   onOpenRadar: (outbreakId?: string) => void;
+  onDeleteForEveryone?: (outbreakId: string) => Promise<void>;
 }
 
 export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCardProps> = ({
@@ -57,9 +61,17 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
   onConfirmSend,
   onDismiss,
   onOpenRadar,
+  onDeleteForEveryone,
 }) => {
   const isTe = language === 'te';
   const [isSending, setIsSending] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const formattedDispatchedTime =
+    formatLocalTime(outbreakAlert.dispatchedTimestamp || outbreakAlert.dispatchedTime) ||
+    outbreakAlert.dispatchedTime ||
+    (isTe ? 'ఇప్పుడే' : 'Just now');
 
   const matchPercent = outbreakAlert.aiMatchScore
     ? Math.round(outbreakAlert.aiMatchScore * 100)
@@ -79,6 +91,32 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
       setIsSending(false);
     }
   };
+
+  const handleDeleteConfirm = async () => {
+    if (!onDeleteForEveryone || !outbreakAlert.outbreakId) return;
+    setIsDeleting(true);
+    try {
+      await onDeleteForEveryone(outbreakAlert.outbreakId);
+      setShowDeleteConfirm(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  if (outbreakAlert.isDeleted) {
+    return (
+      <div className="w-full rounded-2xl bg-[#F8FAF5] border border-rose-200 p-3.5 text-xs text-rose-800 flex items-center justify-between shadow-xs">
+        <span className="flex items-center gap-2 font-medium">
+          <Trash2 className="w-4 h-4 text-rose-500 shrink-0" />
+          <span>
+            {isTe
+              ? 'ఈ తెగులు నివేదిక కమ్యూనిటీ రాడార్ నుండి తొలగించబడింది మరియు అందరికీ నోటిఫికేషన్‌లు రద్దు చేయబడ్డాయి.'
+              : 'This outbreak report was removed from the community radar and deleted for everyone.'}
+          </span>
+        </span>
+      </div>
+    );
+  }
 
   // 1. Status: Unknown Host Range (Withheld alert)
   if (outbreakAlert.status === 'unknown_host_range') {
@@ -152,14 +190,21 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
             <span>{isTe ? 'కమ్యూనిటీ అలర్ట్ నమోదు లోపం' : 'Community Outbreak Notice Not Sent'}</span>
           </span>
           <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-rose-200 text-rose-900 font-bold">
-            {isTe ? 'డేటాబేస్ లోపం' : 'Write Failed'}
+            {isTe ? 'లోపం' : 'Delivery Failed'}
           </span>
         </div>
-        <p className="leading-relaxed">
-          {isTe
-            ? (outbreakAlert.statusMessageTe || 'కమ్యూనిటీ రాడార్‌లో తెగులు నమోదు చేయడంలో లోపం సంభవించింది. మీ వ్యక్తిగత విశ్లేషణ సురక్షితంగా సేవ్ చేయబడింది.')
-            : (outbreakAlert.statusMessageEn || 'Could not record outbreak to the community database. Your private crop diagnosis was preserved in your active cycle.')}
-        </p>
+        <div className="space-y-1 text-rose-950">
+          <p className="font-bold text-sm text-rose-900">
+            {isTe
+              ? 'తెగులు నివేదిక నమోదైంది, కానీ సమీప రైతులకు అలర్ట్ పంపడం విఫలమైంది.'
+              : 'Outbreak report recorded, but delivery of alerts to nearby farmers failed.'}
+          </p>
+          <p className="leading-relaxed text-xs text-rose-800">
+            {isTe
+              ? (outbreakAlert.statusMessageTe || 'కమ్యూనిటీ రాడార్‌లో తెగులు నమోదు చేయడంలో లోపం సంభవించింది. మీ వ్యక్తిగత విశ్లేషణ సురక్షితంగా సేవ్ చేయబడింది.')
+              : (outbreakAlert.statusMessageEn || 'Could not record outbreak to the community database. Your private crop diagnosis was preserved in your active cycle.')}
+          </p>
+        </div>
       </div>
     );
   }
@@ -183,7 +228,12 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
         </div>
 
         <div className="space-y-1.5 text-[#374B3F] font-medium leading-relaxed">
-          <p>
+          <p className="font-bold text-sm text-[#14281D]">
+            {isTe
+              ? 'తెగులు నివేదిక భద్రపరచబడింది. సమీప 5 కి.మీ పరిధిలో ప్రభావిత పంటలు కలిగిన రైతులు ఎవరూ లేరు.'
+              : 'Outbreak report saved. No nearby farmers with potentially affected crops were found within 5 km to notify.'}
+          </p>
+          <p className="text-xs text-[#5C6F64]">
             {isTe
               ? `ఈ తెగులు నివేదిక (${outbreakAlert.generalizedLocation || 'సెక్టార్ సెంట్రాయిడ్'}) పరిధిలో రాడార్‌లో నమోదు చేయబడింది. ప్రస్తుతం 5 కి.మీ పరిధిలో "${pathogenHostsList}" పంటలు సాగుచేస్తున్న ఇతర రైతులు నమోదు కాలేదు కాబట్టి ఎటువంటి అలర్ట్‌లు పంపాల్సిన అవసరం రాలేదు.`
               : `Suspected outbreak recorded on the community radar around ${outbreakAlert.generalizedLocation || 'sector centroid'}. No other registered farms within 5 km currently cultivate susceptible host crops (${pathogenHostsList}), so no notifications were sent.`}
@@ -197,7 +247,17 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
         </div>
 
         {outbreakAlert.outbreakId && (
-          <div className="pt-2 flex flex-col sm:flex-row sm:justify-end">
+          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
+            {onDeleteForEveryone && (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="w-full sm:w-auto min-h-[38px] inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white hover:bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>{isTe ? 'అందరికీ తొలగించండి' : 'Delete for everyone'}</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onOpenRadar(outbreakAlert.outbreakId)}
@@ -206,6 +266,48 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
               <Radar className="w-3.5 h-3.5" />
               <span>{isTe ? 'మ్యాప్‌లో రాడార్ చూడండి →' : 'View on Disease Radar Map →'}</span>
             </button>
+          </div>
+        )}
+
+        {showDeleteConfirm && (
+          <div className="mt-2.5 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs space-y-2">
+            <div className="flex items-center gap-1.5 text-rose-950 font-bold">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{isTe ? 'అందరికీ తెగులు నివేదికను తొలగించాలా?' : 'Delete Outbreak Report for Everyone?'}</span>
+            </div>
+            <p className="text-rose-900 leading-relaxed text-[11px]">
+              {isTe
+                ? 'ఇది కమ్యూనిటీ రాడార్ మ్యాప్ నుండి నివేదికను తొలగిస్తుంది మరియు సమీప రైతులకు పంపబడిన హెచ్చరిక నోటిఫికేషన్‌లను అందరి వద్ద తొలగిస్తుంది.'
+                : 'This will remove the report from the shared community radar and delete all alert notifications linked to it for all recipients.'}
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="px-3 py-1.5 rounded-xl bg-white border border-[#D9E2CE] text-[#4A6052] font-bold text-xs hover:bg-slate-50 cursor-pointer"
+              >
+                {isTe ? 'రద్దు చేయండి' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-all shadow-xs cursor-pointer disabled:opacity-60"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>{isTe ? 'తొలగిస్తున్నాము...' : 'Deleting...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isTe ? 'అవును, అందరికీ తొలగించండి' : 'Yes, Delete for everyone'}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -244,10 +346,15 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
         </div>
 
         <div className="space-y-1.5 text-amber-950 font-medium leading-relaxed">
-          <p>
+          <p className="font-bold text-sm text-[#14281D]">
             {isTe
-              ? `ఈ హెచ్చరిక ${outbreakAlert.dispatchedTime || 'ఇప్పుడే'} నాడు సెక్టార్ పరిధిలోని (${outbreakAlert.lat.toFixed(2)}, ${outbreakAlert.lon.toFixed(2)}) 5 కి.మీ సమీపంలో "${pathogenHostsList}" పంటలు సాగుచేస్తున్న ${outbreakAlert.nearbyCount ?? 0} మంది రైతులకు స్వయంచాలకంగా చేరింది.`
-              : `This alert was automatically dispatched at ${outbreakAlert.dispatchedTime || 'Just now'} to ${outbreakAlert.nearbyCount ?? 0} registered nearby farms cultivating plausible host crops (${pathogenHostsList}) within 5 km of sector centroid (${outbreakAlert.lat.toFixed(2)}, ${outbreakAlert.lon.toFixed(2)}).`}
+              ? `తెగులు నివేదిక పంపబడింది. ప్రభావిత పంటలు ఉన్న ${outbreakAlert.nearbyCount ?? 0} మంది సమీప రైతులకు సమాచారం చేరింది.`
+              : `Outbreak report sent. ${outbreakAlert.nearbyCount ?? 0} nearby ${outbreakAlert.nearbyCount === 1 ? 'farmer' : 'farmers'} with potentially affected crops ${outbreakAlert.nearbyCount === 1 ? 'was' : 'were'} notified.`}
+          </p>
+          <p className="text-xs text-[#5C6F64]">
+            {isTe
+              ? `ఈ హెచ్చరిక ${formattedDispatchedTime} నాడు సెక్టార్ పరిధిలోని (${outbreakAlert.lat.toFixed(2)}, ${outbreakAlert.lon.toFixed(2)}) 5 కి.మీ సమీపంలో "${pathogenHostsList}" పంటలు సాగుచేస్తున్న రైతులకు స్వయంచాలకంగా చేరింది.`
+              : `Dispatched at ${formattedDispatchedTime} to registered nearby farms cultivating plausible host crops (${pathogenHostsList}) within 5 km of sector centroid (${outbreakAlert.lat.toFixed(2)}, ${outbreakAlert.lon.toFixed(2)}).`}
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-amber-900/90">
@@ -282,7 +389,17 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
         )}
 
         {outbreakAlert.outbreakId && (
-          <div className="pt-2 flex flex-col sm:flex-row sm:justify-end">
+          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
+            {onDeleteForEveryone && (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="w-full sm:w-auto min-h-[38px] inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white hover:bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>{isTe ? 'అందరికీ తొలగించండి' : 'Delete for everyone'}</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onOpenRadar(outbreakAlert.outbreakId)}
@@ -291,6 +408,48 @@ export const OutbreakAlertConfirmationCard: React.FC<OutbreakAlertConfirmationCa
               <Radar className="w-3.5 h-3.5" />
               <span>{isTe ? 'మ్యాప్‌లో రాడార్ చూడండి →' : 'View on Disease Radar Map →'}</span>
             </button>
+          </div>
+        )}
+
+        {showDeleteConfirm && (
+          <div className="mt-2.5 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs space-y-2">
+            <div className="flex items-center gap-1.5 text-rose-950 font-bold">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{isTe ? 'అందరికీ తెగులు నివేదికను తొలగించాలా?' : 'Delete Outbreak Report for Everyone?'}</span>
+            </div>
+            <p className="text-rose-900 leading-relaxed text-[11px]">
+              {isTe
+                ? 'ఇది కమ్యూనిటీ రాడార్ మ్యాప్ నుండి నివేదికను తొలగిస్తుంది మరియు సమీప రైతులకు పంపబడిన హెచ్చరిక నోటిఫికేషన్‌లను అందరి వద్ద తొలగిస్తుంది.'
+                : 'This will remove the report from the shared community radar and delete all alert notifications linked to it for all recipients.'}
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="px-3 py-1.5 rounded-xl bg-white border border-[#D9E2CE] text-[#4A6052] font-bold text-xs hover:bg-slate-50 cursor-pointer"
+              >
+                {isTe ? 'రద్దు చేయండి' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-all shadow-xs cursor-pointer disabled:opacity-60"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>{isTe ? 'తొలగిస్తున్నాము...' : 'Deleting...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isTe ? 'అవును, అందరికీ తొలగించండి' : 'Yes, Delete for everyone'}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
       </div>

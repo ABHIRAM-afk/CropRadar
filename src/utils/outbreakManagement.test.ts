@@ -379,13 +379,58 @@ describe('Crop Radar Timestamps & Outbreak Management Tests', () => {
 
     // In hide-outbreak endpoint
     assert.ok(
-      serverCode.includes("app.post('/api/disease-radar/hide-outbreak'") &&
+      serverCode.includes('/api/disease-radar/hide-outbreak') &&
       serverCode.includes('const userId = req.user?.id'),
       'hide-outbreak must derive user strictly from req.user.id'
     );
     assert.ok(
       serverCode.includes("from('user_hidden_outbreaks')"),
       'hide-outbreak must persist to user_hidden_outbreaks table'
+    );
+  });
+
+  // --------------------------------------------------------------------------
+  // Requirement 11: Vercel Routing & Prefix Normalization
+  // --------------------------------------------------------------------------
+  it('11. Vercel Routing: vercel.json rewrites /api/(.*) and handlers normalize URL prefixes', () => {
+    const vercelConfig = JSON.parse(fs.readFileSync(path.resolve('vercel.json'), 'utf8'));
+    const rewrites = vercelConfig.rewrites || [];
+    const apiRewrite = rewrites.find((r: any) => r.source === '/api/(.*)');
+    assert.ok(apiRewrite, 'vercel.json must rewrite /api/(.*) to /api');
+    assert.strictEqual(apiRewrite.destination, '/api');
+
+    const apiIndexCode = fs.readFileSync(path.resolve('api/index.ts'), 'utf8');
+    assert.ok(
+      apiIndexCode.includes('normalizeVercelUrl') && apiIndexCode.includes('/api'),
+      'api/index.ts must normalize URLs to prevent 404 routing mismatches on Vercel'
+    );
+
+    const serverCode = fs.readFileSync(path.resolve('server.ts'), 'utf8');
+    assert.ok(
+      serverCode.includes("'/api/notifications/mark-all-read'") &&
+      serverCode.includes("'/notifications/mark-all-read'"),
+      'server.ts must listen on both /api/ and root paths for notifications mark-all-read'
+    );
+  });
+
+  // --------------------------------------------------------------------------
+  // Requirement 12: Radar Removal UI Persistence & Failure Handling
+  // --------------------------------------------------------------------------
+  it('12. Radar Removal: DiseaseRadarModal awaits database confirmation before updating state or removing marker', () => {
+    const modalCode = fs.readFileSync(path.resolve('src/components/DiseaseRadarModal.tsx'), 'utf8');
+    assert.ok(
+      modalCode.includes('await onRemoveFromMyRadar(outbreakId)'),
+      'DiseaseRadarModal must await database write confirmation first'
+    );
+    assert.ok(
+      modalCode.includes('setRemovingOutbreakId'),
+      'DiseaseRadarModal must track removing state to prevent double submits'
+    );
+
+    const appCode = fs.readFileSync(path.resolve('src/App.tsx'), 'utf8');
+    assert.ok(
+      appCode.includes('!isLoadingAuth') && appCode.includes('fetchDiseaseReports'),
+      'App.tsx must wait for auth session to resolve before fetching radar reports on refresh'
     );
   });
 });

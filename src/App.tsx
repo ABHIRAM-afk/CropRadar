@@ -420,11 +420,14 @@ export default function App() {
   useEffect(() => {
     if (profile.hasExplicitLocation || profile.latitude) {
       fetchWeatherData(profile.latitude, profile.longitude, profile.farmLocation);
-      fetchDiseaseReports(profile.latitude, profile.longitude);
-      fetchDiaryEntries();
-      fetchNotifications();
+      // Wait for auth session to resolve before fetching user-scoped radar reports and notifications
+      if (!isLoadingAuth) {
+        fetchDiseaseReports(profile.latitude, profile.longitude);
+        fetchDiaryEntries();
+        fetchNotifications();
+      }
     }
-  }, [profile.latitude, profile.longitude, profile.hasExplicitLocation]);
+  }, [profile.latitude, profile.longitude, profile.hasExplicitLocation, isLoadingAuth]);
 
   const fetchWeatherData = async (lat: number, lon: number, locName: string) => {
     try {
@@ -1048,18 +1051,21 @@ export default function App() {
       } catch {}
 
       if (!resp.ok || !json?.success) {
-        const errMsg = json?.error || 'Failed to remove outbreak from radar.';
+        const errMsg = json?.error || (resp.status ? `Server error (HTTP ${resp.status})` : 'Could not update radar preferences. Please try again.');
         showToast('error', isTe ? `రాడార్ నుండి తీసివేయడం విఫలమైంది: ${errMsg}` : `Failed to remove outbreak from radar: ${errMsg}`);
-        return;
+        throw new Error(errMsg);
       }
 
-      // Optimistically update disease reports list in state
+      // Confirmed database write: update state and show success
       setDiseaseReports((prev) => prev.filter((r) => r.id !== outbreakId));
       fetchDiseaseReports(profile.latitude, profile.longitude);
       showToast('info', isTe ? 'హెచ్చరిక మీ రాడార్ వీక్షణ నుండి తీసివేయబడింది.' : 'Outbreak removed from your radar view.');
     } catch (err: any) {
       console.warn('Failed to hide outbreak on server:', err);
-      showToast('error', isTe ? 'రాడార్ నుండి తీసివేయడం విఫలమైంది.' : 'Failed to remove outbreak from radar.');
+      if (!err?.message?.includes('Failed to remove') && !err?.message?.includes('Server error')) {
+        showToast('error', isTe ? 'రాడార్ నుండి తీసివేయడం విఫలమైంది.' : 'Could not update radar preferences. Please try again.');
+      }
+      throw err;
     }
   };
 

@@ -1926,6 +1926,10 @@ app.get('/api/disease-radar', async (req: AuthenticatedRequest, res: Response) =
     stats,
   });
 });
+app.get('/disease-radar', (req: Request, res: Response) => {
+  req.url = `/api/disease-radar${req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''}`;
+  return app(req, res);
+});
 
 /**
  * Remove an outbreak from the signed-in user's personal radar view.
@@ -1980,6 +1984,10 @@ app.post('/api/disease-radar/hide-outbreak', async (req: AuthenticatedRequest, r
     message: 'Outbreak hidden from your personal radar view',
   });
 });
+app.post('/disease-radar/hide-outbreak', (req: Request, res: Response) => {
+  req.url = '/api/disease-radar/hide-outbreak';
+  return app(req, res);
+});
 
 /**
  * Get all hidden outbreak IDs for the authenticated user.
@@ -2007,6 +2015,10 @@ app.get('/api/disease-radar/hidden-outbreaks', async (req: AuthenticatedRequest,
   }
 
   return res.json({ success: true, hiddenOutbreakIds: Array.from(hidden) });
+});
+app.get('/disease-radar/hidden-outbreaks', (req: Request, res: Response) => {
+  req.url = '/api/disease-radar/hidden-outbreaks';
+  return app(req, res);
 });
 
 /**
@@ -2119,6 +2131,8 @@ const handleDeleteOutbreakForEveryone = async (req: AuthenticatedRequest, res: R
 
 app.delete('/api/disease-radar/outbreaks/:id', handleDeleteOutbreakForEveryone);
 app.post('/api/disease-radar/delete-outbreak', handleDeleteOutbreakForEveryone);
+app.delete('/disease-radar/outbreaks/:id', handleDeleteOutbreakForEveryone);
+app.post('/disease-radar/delete-outbreak', handleDeleteOutbreakForEveryone);
 
 app.get('/api/notifications', async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.id;
@@ -2203,6 +2217,10 @@ app.get('/api/notifications', async (req: AuthenticatedRequest, res: Response) =
     unreadCount: guestNotifs.filter((n) => !n.isRead).length,
   });
 });
+app.get('/notifications', (req: Request, res: Response) => {
+  req.url = '/api/notifications';
+  return app(req, res);
+});
 
 const handleMarkAllNotificationsRead = async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.id;
@@ -2237,6 +2255,8 @@ const handleMarkAllNotificationsRead = async (req: AuthenticatedRequest, res: Re
 
 app.patch('/api/notifications/mark-all-read', handleMarkAllNotificationsRead);
 app.post('/api/notifications/mark-all-read', handleMarkAllNotificationsRead);
+app.patch('/notifications/mark-all-read', handleMarkAllNotificationsRead);
+app.post('/notifications/mark-all-read', handleMarkAllNotificationsRead);
 
 const handleMarkSingleNotificationRead = async (req: AuthenticatedRequest, res: Response) => {
   const notifId = req.params.id;
@@ -2267,8 +2287,10 @@ const handleMarkSingleNotificationRead = async (req: AuthenticatedRequest, res: 
 
 app.patch('/api/notifications/:id/read', handleMarkSingleNotificationRead);
 app.post('/api/notifications/:id/read', handleMarkSingleNotificationRead);
+app.patch('/notifications/:id/read', handleMarkSingleNotificationRead);
+app.post('/notifications/:id/read', handleMarkSingleNotificationRead);
 
-app.delete('/api/notifications', async (req: AuthenticatedRequest, res: Response) => {
+app.delete(['/api/notifications', '/notifications'], async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.id;
 
   if (userId) {
@@ -2334,7 +2356,7 @@ app.delete('/api/notifications', async (req: AuthenticatedRequest, res: Response
   });
 });
 
-app.delete('/api/notifications/:id', async (req: AuthenticatedRequest, res: Response) => {
+app.delete(['/api/notifications/:id', '/notifications/:id'], async (req: AuthenticatedRequest, res: Response) => {
   const notifId = req.params.id;
   const userId = req.user?.id;
 

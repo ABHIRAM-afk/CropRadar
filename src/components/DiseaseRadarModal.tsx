@@ -50,6 +50,7 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
 
   // Account-scoped hidden outbreak IDs loaded from Supabase user_hidden_outbreaks
   const [hiddenOutbreakIds, setHiddenOutbreakIds] = useState<Set<string>>(new Set());
+  const [removingOutbreakId, setRemovingOutbreakId] = useState<string | null>(null);
 
   // Load account-scoped hidden alerts across devices when modal opens or user signs in
   useEffect(() => {
@@ -72,29 +73,36 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
   }, [isOpen, currentUserId]);
 
   const handleRemoveFromMyRadar = async (outbreakId: string) => {
-    setHiddenOutbreakIds((prev) => {
-      const next = new Set(prev);
-      next.add(outbreakId);
-      return next;
-    });
+    if (!onRemoveFromMyRadar || removingOutbreakId) return;
+    setRemovingOutbreakId(outbreakId);
 
-    if (selectedReport?.id === outbreakId) {
-      setSelectedReport(null);
-    }
+    try {
+      // 1. Await server database confirmation FIRST
+      await onRemoveFromMyRadar(outbreakId);
 
-    // Safely remove marker from map instance
-    const marker = markerMapRef.current.get(outbreakId);
-    if (marker && mapInstanceRef.current) {
-      mapInstanceRef.current.removeLayer(marker);
-      markerMapRef.current.delete(outbreakId);
-    }
+      // 2. Only after database confirms success, update state and map
+      setHiddenOutbreakIds((prev) => {
+        const next = new Set(prev);
+        next.add(outbreakId);
+        return next;
+      });
 
-    if (onRemoveFromMyRadar) {
-      try {
-        await onRemoveFromMyRadar(outbreakId);
-      } catch (err) {
-        console.warn('Server sync error for hiding outbreak:', err);
+      if (selectedReport?.id === outbreakId) {
+        setSelectedReport(null);
       }
+
+      // Safely remove marker from map instance
+      const marker = markerMapRef.current.get(outbreakId);
+      if (marker && mapInstanceRef.current) {
+        mapInstanceRef.current.removeLayer(marker);
+        markerMapRef.current.delete(outbreakId);
+      }
+    } catch (err: any) {
+      // If server write fails, DO NOT hide the report from list or map!
+      // Keep alert visible; error toast is shown by App.tsx
+      console.error('Failed to remove outbreak from radar:', err);
+    } finally {
+      setRemovingOutbreakId(null);
     }
   };
 
@@ -629,16 +637,25 @@ export const DiseaseRadarModal: React.FC<DiseaseRadarModalProps> = ({
                           </span>
                           <button
                             type="button"
+                            disabled={removingOutbreakId === rep.id}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleRemoveFromMyRadar(rep.id);
                             }}
-                            className="inline-flex items-center gap-1 text-[10px] font-bold text-[#7E9085] hover:text-rose-600 transition-colors p-1 rounded hover:bg-rose-50 cursor-pointer"
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-[#7E9085] hover:text-rose-600 transition-colors p-1 rounded hover:bg-rose-50 cursor-pointer disabled:opacity-50"
                             title={isTe ? 'నా రాడార్ నుండి తీసివేయి' : 'Remove from my radar'}
                           >
-                            <EyeOff className="w-3 h-3" />
-                            <span className="hidden min-[380px]:inline">{isTe ? 'తీసివేయి' : 'Remove from my radar'}</span>
-                            <span className="min-[380px]:hidden">{isTe ? 'తీసివేయి' : 'Remove'}</span>
+                            <EyeOff className={`w-3 h-3 ${removingOutbreakId === rep.id ? 'animate-pulse text-amber-600' : ''}`} />
+                            <span className="hidden min-[380px]:inline">
+                              {removingOutbreakId === rep.id
+                                ? (isTe ? 'తీసివేస్తోంది...' : 'Removing...')
+                                : (isTe ? 'తీసివేయి' : 'Remove from my radar')}
+                            </span>
+                            <span className="min-[380px]:hidden">
+                              {removingOutbreakId === rep.id
+                                ? (isTe ? 'తీసివేస్తోంది...' : '...')
+                                : (isTe ? 'తీసివేయి' : 'Remove')}
+                            </span>
                           </button>
                         </div>
                       </div>

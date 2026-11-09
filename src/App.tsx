@@ -177,7 +177,9 @@ export default function App() {
         setDiaryEntries([]);
         setNotificationsList([]);
         setUnreadNotificationsCount(0);
+        setDiseaseReports([]);
         setProfile(DEFAULT_PROFILE);
+        fetchDiseaseReports(DEFAULT_PROFILE.latitude, DEFAULT_PROFILE.longitude);
         return;
       }
 
@@ -191,6 +193,7 @@ export default function App() {
       setDiaryEntries([]);
       setNotificationsList([]);
       setUnreadNotificationsCount(0);
+      setDiseaseReports([]);
 
       const isAnonymous = Boolean(user.is_anonymous ?? user.app_metadata?.provider === 'anonymous');
       const metadataName = user.user_metadata?.full_name || user.user_metadata?.name;
@@ -274,9 +277,10 @@ export default function App() {
         console.warn('Failed to load crop cycles from server:', err);
       }
 
-      // Fetch user-scoped notifications and field diary
+      // Fetch user-scoped notifications, field diary, and user-scoped disease radar reports
       fetchDiaryEntries();
       fetchNotifications();
+      fetchDiseaseReports(initialProfile.latitude, initialProfile.longitude);
     };
 
     void (async () => {
@@ -1033,15 +1037,29 @@ export default function App() {
 
   const handleRemoveFromMyRadar = async (outbreakId: string) => {
     try {
-      await authFetch('/api/disease-radar/hide-outbreak', {
+      const resp = await authFetch('/api/disease-radar/hide-outbreak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ outbreakId }),
       });
+      let json: any = null;
+      try {
+        json = await resp.json();
+      } catch {}
+
+      if (!resp.ok || !json?.success) {
+        const errMsg = json?.error || 'Failed to remove outbreak from radar.';
+        showToast('error', isTe ? `రాడార్ నుండి తీసివేయడం విఫలమైంది: ${errMsg}` : `Failed to remove outbreak from radar: ${errMsg}`);
+        return;
+      }
+
+      // Optimistically update disease reports list in state
+      setDiseaseReports((prev) => prev.filter((r) => r.id !== outbreakId));
       fetchDiseaseReports(profile.latitude, profile.longitude);
       showToast('info', isTe ? 'హెచ్చరిక మీ రాడార్ వీక్షణ నుండి తీసివేయబడింది.' : 'Outbreak removed from your radar view.');
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Failed to hide outbreak on server:', err);
+      showToast('error', isTe ? 'రాడార్ నుండి తీసివేయడం విఫలమైంది.' : 'Failed to remove outbreak from radar.');
     }
   };
 
@@ -1058,24 +1076,31 @@ export default function App() {
         const resp = await authFetch('/api/notifications/mark-all-read', {
           method: 'PATCH',
         });
-        if (!resp.ok) {
-          throw new Error('Failed to update notification read status on server.');
-        }
-        const json = await resp.json();
-        if (!json.success) {
-          throw new Error(json.error || 'Server rejected marking notifications as read.');
+        
+        let json: any = null;
+        try {
+          json = await resp.json();
+        } catch {
+          // Response body is not valid JSON
         }
 
-        // Successfully updated on server: update local state & badge to 0
+        if (!resp.ok || !json?.success) {
+          const diagnosticError = json?.error || (resp.status ? `Server error (HTTP ${resp.status})` : 'Failed to update notification read status on server.');
+          throw new Error(diagnosticError);
+        }
+
+        // Successfully confirmed by server database: update local state & unread badge to 0
         setNotificationsList((prev) => prev.map((n) => ({ ...n, isRead: true })));
         setUnreadNotificationsCount(0);
       } catch (err: any) {
         console.warn('Error marking notifications as read:', err);
+        // On failure, preserve unread state and show useful diagnostic error
+        const errorDetail = err?.message || 'Network error';
         showToast(
           'error',
           isTe
-            ? 'నోటిఫికేషన్‌లను చదివినట్లుగా మార్చడంలో విఫలమైంది. దయచేసి నెట్‌వర్క్‌ను పరిశీలించండి.'
-            : 'Could not mark notifications as read. Please check your connection.'
+            ? `నోటిఫికేషన్‌లను చదివినట్లుగా మార్చడం విఫలమైంది: ${errorDetail}`
+            : `Could not mark notifications as read: ${errorDetail}`
         );
       }
     }
@@ -1777,6 +1802,7 @@ export default function App() {
         onOpenRadar={(outbreakId) => handleOpenRadar(outbreakId)}
         onMarkAsRead={(id) => {
           setNotificationsList((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+          setUnreadNotificationsCount((prev) => Math.max(0, prev - 1));
           authFetch(`/api/notifications/${id}/read`, { method: 'PATCH' }).catch((e) => console.warn(e));
         }}
         onDeleteAllSuccess={() => {

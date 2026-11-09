@@ -312,5 +312,81 @@ describe('Crop Radar Timestamps & Outbreak Management Tests', () => {
       'Send button must have explicit flexShrink: 0'
     );
   });
+
+  // --------------------------------------------------------------------------
+  // Requirement 8: Outbreak Removal Persistence Across Sessions & Devices
+  // --------------------------------------------------------------------------
+  it('8. Outbreak Removal: applySession resets diseaseReports and re-fetches with authenticated session token', () => {
+    const appPath = path.resolve('src/App.tsx');
+    const appCode = fs.readFileSync(appPath, 'utf8');
+
+    // On account login/change, applySession must reset and re-fetch diseaseReports
+    assert.ok(
+      appCode.includes('setDiseaseReports([])'),
+      'applySession must clear previous diseaseReports when account changes or logs out'
+    );
+    assert.ok(
+      appCode.includes('fetchDiseaseReports(initialProfile.latitude, initialProfile.longitude)'),
+      'applySession must re-fetch disease reports with authenticated session token'
+    );
+  });
+
+  // --------------------------------------------------------------------------
+  // Requirement 9: Notification Mark As Read Database Confirmation & Diagnostic Error
+  // --------------------------------------------------------------------------
+  it('9. Mark As Read: Updates unread badge ONLY after database confirms success and preserves unread state on failure', () => {
+    const appPath = path.resolve('src/App.tsx');
+    const appCode = fs.readFileSync(appPath, 'utf8');
+
+    // Notification mark as read must check resp.ok && json?.success before clearing unread badge
+    assert.ok(
+      appCode.includes('if (!resp.ok || !json?.success)'),
+      'handleOpenNotifications must check both resp.ok and json.success before clearing badge'
+    );
+    assert.ok(
+      appCode.includes('setUnreadNotificationsCount(0)'),
+      'handleOpenNotifications must update badge only after confirmation'
+    );
+    // Preserves unread state on error and shows actual diagnostic error message
+    assert.ok(
+      appCode.includes('Could not mark notifications as read: ${errorDetail}') ||
+      appCode.includes('Could not mark notifications as read:'),
+      'handleOpenNotifications must display actual diagnostic error detail rather than masking with connection message'
+    );
+  });
+
+  // --------------------------------------------------------------------------
+  // Requirement 10: Server-Enforced Session Identity & UUID Validation
+  // --------------------------------------------------------------------------
+  it('10. Server Endpoints: Derives user strictly from req.user.id and validates UUID syntax before DB queries', () => {
+    const serverPath = path.resolve('server.ts');
+    const serverCode = fs.readFileSync(serverPath, 'utf8');
+
+    // In mark-all-read endpoint
+    assert.ok(
+      serverCode.includes('handleMarkAllNotificationsRead') &&
+      serverCode.includes('const userId = req.user?.id'),
+      'mark-all-read must derive user strictly from req.user.id'
+    );
+    assert.ok(
+      serverCode.includes('isValidUuid(userId)'),
+      'Server must validate UUID before querying recipient_user_id in Supabase to prevent 22P02 syntax errors'
+    );
+    assert.ok(
+      serverCode.includes("eq('recipient_user_id', userId)"),
+      'mark-all-read must be strictly scoped to recipient_user_id'
+    );
+
+    // In hide-outbreak endpoint
+    assert.ok(
+      serverCode.includes("app.post('/api/disease-radar/hide-outbreak'") &&
+      serverCode.includes('const userId = req.user?.id'),
+      'hide-outbreak must derive user strictly from req.user.id'
+    );
+    assert.ok(
+      serverCode.includes("from('user_hidden_outbreaks')"),
+      'hide-outbreak must persist to user_hidden_outbreaks table'
+    );
+  });
 });
 

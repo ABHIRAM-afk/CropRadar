@@ -406,8 +406,8 @@ app.get('/api/crop-cycles', async (req: AuthenticatedRequest, res: Response) => 
 
         return res.json({ success: true, cycles });
       } catch (err: any) {
-        console.warn('Supabase fetch crop_cycles exception:', err);
-        return res.status(500).json({ success: false, error: err.message });
+        console.error('Supabase fetch crop_cycles exception:', err);
+        return res.status(500).json({ success: false, error: 'Could not load crop cycles. Please try again.' });
       }
     }
 
@@ -494,8 +494,8 @@ app.post('/api/crop-cycles', async (req: AuthenticatedRequest, res: Response) =>
         }
       }
     } catch (err: any) {
-      console.warn('Supabase create crop_cycle error:', err);
-      return res.status(500).json({ success: false, error: err.message || 'Could not save crop cycle' });
+      console.error('Supabase create crop_cycle error:', err);
+      return res.status(500).json({ success: false, error: 'Could not save crop cycle. Please try again.' });
     }
   }
 
@@ -1849,13 +1849,13 @@ app.get('/api/disease-radar', async (req: AuthenticatedRequest, res: Response) =
     if (memHidden) {
       memHidden.forEach((id) => userHidden.add(id));
     }
-    if (isSupabaseConfigured && supabaseAdmin) {
+    if (isSupabaseConfigured && supabaseAdmin && isValidUuid(currentUserId)) {
       try {
-        const { data: hiddenData } = await supabaseAdmin
+        const { data: hiddenData, error: hidErr } = await supabaseAdmin
           .from('user_hidden_outbreaks')
           .select('outbreak_id')
           .eq('user_id', currentUserId);
-        if (hiddenData) {
+        if (!hidErr && hiddenData) {
           hiddenData.forEach((row: any) => userHidden.add(row.outbreak_id));
         }
       } catch (err: any) {
@@ -1952,14 +1952,25 @@ app.post('/api/disease-radar/hide-outbreak', async (req: AuthenticatedRequest, r
 
   if (isSupabaseConfigured && supabaseAdmin && isValidUuid(userId) && isValidUuid(outbreakId)) {
     try {
-      await supabaseAdmin
+      const { error } = await supabaseAdmin
         .from('user_hidden_outbreaks')
         .upsert(
           { user_id: userId, outbreak_id: outbreakId },
           { onConflict: 'user_id,outbreak_id' }
         );
+      if (error) {
+        console.error('Supabase user_hidden_outbreaks upsert error:', error);
+        return res.status(500).json({
+          success: false,
+          error: 'Could not update radar preferences. Please try again.',
+        });
+      }
     } catch (err: any) {
-      console.warn('Note: user_hidden_outbreaks table not applied yet; using memory:', err.message);
+      console.error('Supabase user_hidden_outbreaks exception:', err);
+      return res.status(500).json({
+        success: false,
+        error: 'Could not update radar preferences. Please try again.',
+      });
     }
   }
 
@@ -1981,17 +1992,17 @@ app.get('/api/disease-radar/hidden-outbreaks', async (req: AuthenticatedRequest,
 
   const hidden = new Set<string>(userHiddenOutbreaks.get(userId) || []);
 
-  if (isSupabaseConfigured && supabaseAdmin) {
+  if (isSupabaseConfigured && supabaseAdmin && isValidUuid(userId)) {
     try {
-      const { data } = await supabaseAdmin
+      const { data, error } = await supabaseAdmin
         .from('user_hidden_outbreaks')
         .select('outbreak_id')
         .eq('user_id', userId);
-      if (data) {
+      if (!error && data) {
         data.forEach((row: any) => hidden.add(row.outbreak_id));
       }
     } catch (err: any) {
-      // Fallback to memory
+      console.warn('Supabase fetch hidden outbreaks error:', err.message);
     }
   }
 
@@ -2058,8 +2069,8 @@ const handleDeleteOutbreakForEveryone = async (req: AuthenticatedRequest, res: R
           .eq('id', outbreakId);
 
         if (deleteErr) {
-          console.warn('Failed to delete disease outbreak from DB:', deleteErr.message);
-          return res.status(500).json({ success: false, error: 'Failed to delete outbreak from database' });
+          console.error('Failed to delete disease outbreak from DB:', deleteErr);
+          return res.status(500).json({ success: false, error: 'Failed to delete outbreak report. Please try again.' });
         }
 
         // Clean up any hidden records for this deleted outbreak
@@ -2071,8 +2082,8 @@ const handleDeleteOutbreakForEveryone = async (req: AuthenticatedRequest, res: R
         } catch {}
       }
     } catch (err: any) {
-      console.warn('Exception during outbreak deletion in Supabase:', err.message);
-      return res.status(500).json({ success: false, error: err.message });
+      console.error('Exception during outbreak deletion in Supabase:', err);
+      return res.status(500).json({ success: false, error: 'Failed to delete outbreak report. Please try again.' });
     }
   }
 
@@ -2125,8 +2136,8 @@ app.get('/api/notifications', async (req: AuthenticatedRequest, res: Response) =
           .order('created_at', { ascending: false });
 
         if (error) {
-          console.warn('Supabase fetch notifications error:', error);
-          return res.status(500).json({ success: false, error: 'Failed to fetch notifications' });
+          console.error('Supabase fetch notifications error:', error);
+          return res.status(500).json({ success: false, error: 'Could not load notifications. Please try again.' });
         }
 
         const mapped = (data || []).map((n: any) => ({
@@ -2156,8 +2167,8 @@ app.get('/api/notifications', async (req: AuthenticatedRequest, res: Response) =
           unreadCount: mapped.filter((n: any) => !n.isRead).length,
         });
       } catch (err: any) {
-        console.warn('Supabase fetch notifications exception:', err);
-        return res.status(500).json({ success: false, error: err.message });
+        console.error('Supabase fetch notifications exception:', err);
+        return res.status(500).json({ success: false, error: 'Could not load notifications. Please try again.' });
       }
     }
 
@@ -2193,10 +2204,10 @@ app.get('/api/notifications', async (req: AuthenticatedRequest, res: Response) =
   });
 });
 
-app.patch('/api/notifications/mark-all-read', async (req: AuthenticatedRequest, res: Response) => {
+const handleMarkAllNotificationsRead = async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.id;
 
-  if (userId && isSupabaseConfigured && supabaseAdmin) {
+  if (userId && isValidUuid(userId) && isSupabaseConfigured && supabaseAdmin) {
     try {
       const { error } = await supabaseAdmin
         .from('notifications')
@@ -2205,46 +2216,57 @@ app.patch('/api/notifications/mark-all-read', async (req: AuthenticatedRequest, 
         .eq('is_read', false);
 
       if (error) {
-        console.warn('Supabase mark-all-read error:', error.message);
-        return res.status(500).json({ success: false, error: 'Database update failed.' });
+        console.error('Supabase mark-all-read error:', error);
+        return res.status(500).json({ success: false, error: 'Could not update notifications. Please try again.' });
       }
     } catch (err: any) {
-      console.warn('Supabase mark-all-read exception:', err.message);
-      return res.status(500).json({ success: false, error: err.message });
+      console.error('Supabase mark-all-read exception:', err);
+      return res.status(500).json({ success: false, error: 'Could not update notifications. Please try again.' });
     }
   }
 
-  // Update in-memory queue
+  // Update in-memory queue strictly scoped to user or guest
   inMemoryNotificationsQueue.forEach((n) => {
     if (!userId || n.userId === userId || n.userId === 'guest-session') {
       n.isRead = true;
     }
   });
 
-  res.json({ success: true, unreadCount: 0 });
-});
+  return res.json({ success: true, unreadCount: 0 });
+};
 
-app.patch('/api/notifications/:id/read', async (req: AuthenticatedRequest, res: Response) => {
+app.patch('/api/notifications/mark-all-read', handleMarkAllNotificationsRead);
+app.post('/api/notifications/mark-all-read', handleMarkAllNotificationsRead);
+
+const handleMarkSingleNotificationRead = async (req: AuthenticatedRequest, res: Response) => {
   const notifId = req.params.id;
   const userId = req.user?.id;
 
-  if (userId && isSupabaseConfigured && supabaseAdmin) {
+  if (userId && isValidUuid(userId) && isSupabaseConfigured && supabaseAdmin && isValidUuid(notifId)) {
     try {
-      await supabaseAdmin
+      const { error } = await supabaseAdmin
         .from('notifications')
         .update({ is_read: true })
         .eq('id', notifId)
         .eq('recipient_user_id', userId);
-    } catch (err) {
-      console.warn('Supabase update notification error:', err);
+      if (error) {
+        console.error('Supabase update notification error:', error);
+        return res.status(500).json({ success: false, error: 'Could not update notification. Please try again.' });
+      }
+    } catch (err: any) {
+      console.error('Supabase update notification exception:', err);
+      return res.status(500).json({ success: false, error: 'Could not update notification. Please try again.' });
     }
   }
 
   const found = inMemoryNotificationsQueue.find((n) => n.id === notifId && (!userId || n.userId === userId));
   if (found) found.isRead = true;
 
-  res.json({ success: true, id: notifId, isRead: true });
-});
+  return res.json({ success: true, id: notifId, isRead: true });
+};
+
+app.patch('/api/notifications/:id/read', handleMarkSingleNotificationRead);
+app.post('/api/notifications/:id/read', handleMarkSingleNotificationRead);
 
 app.delete('/api/notifications', async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.id;
@@ -2258,8 +2280,8 @@ app.delete('/api/notifications', async (req: AuthenticatedRequest, res: Response
           .eq('recipient_user_id', userId);
 
         if (error) {
-          console.warn('Supabase delete all notifications error:', error.message);
-          return res.status(500).json({ success: false, error: 'Database deletion failed.' });
+          console.error('Supabase delete all notifications error:', error);
+          return res.status(500).json({ success: false, error: 'Could not delete notifications. Please try again.' });
         }
 
         // Clean up in-memory queue for this user
@@ -2275,8 +2297,8 @@ app.delete('/api/notifications', async (req: AuthenticatedRequest, res: Response
           unreadCount: 0,
         });
       } catch (err: any) {
-        console.warn('Supabase delete all notifications exception:', err.message);
-        return res.status(500).json({ success: false, error: err.message || 'Error deleting notifications' });
+        console.error('Supabase delete all notifications exception:', err);
+        return res.status(500).json({ success: false, error: 'Could not delete notifications. Please try again.' });
       }
     }
 
@@ -2325,10 +2347,12 @@ app.delete('/api/notifications/:id', async (req: AuthenticatedRequest, res: Resp
         .eq('recipient_user_id', userId);
 
       if (error) {
-        return res.status(500).json({ success: false, error: error.message });
+        console.error('Supabase delete notification error:', error);
+        return res.status(500).json({ success: false, error: 'Could not delete notification. Please try again.' });
       }
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+      console.error('Supabase delete notification exception:', err);
+      return res.status(500).json({ success: false, error: 'Could not delete notification. Please try again.' });
     }
   }
 
@@ -2394,8 +2418,8 @@ app.get('/api/field-diary', async (req: AuthenticatedRequest, res: Response) => 
 
         return res.json({ success: true, records: enriched });
       } catch (err: any) {
-        console.warn('Supabase fetch field diary exception:', err);
-        return res.status(500).json({ success: false, error: err.message });
+        console.error('Supabase fetch field diary exception:', err);
+        return res.status(500).json({ success: false, error: 'Could not load field diary entries. Please try again.' });
       }
     }
 
